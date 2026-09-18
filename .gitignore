@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# Backup of the upstream problem-statement repo's git history (local only)
+.upstream_git_backup/
+
+# ---------------------------------------------------------------
+# Provided datasets: too large for GitHub (~6 GB).
+# Re-download from https://github.com/aochinwen/NebulaX-Hackathon-ProblemStatement
+# Label CSVs and the small Door dataset ARE tracked.
+# ---------------------------------------------------------------
+NebulaX-Hackathon-ProblemStatement/PS3/02_Datasets/Rail_Corrugation/Train/
+NebulaX-Hackathon-ProblemStatement/PS3/02_Datasets/Rail_Corrugation/Test/
+NebulaX-Hackathon-ProblemStatement/PS3/02_Datasets/SHM/Train/
+NebulaX-Hackathon-ProblemStatement/PS3/02_Datasets/SHM/Test/
+NebulaX-Hackathon-ProblemStatement/PS3/02_Datasets/ACV/Train/
+NebulaX-Hackathon-ProblemStatement/PS3/02_Datasets/ACV/Test/
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Model artifacts / large outputs
+*.ckpt
+*.pth
+*.pt
+*.h5
+*.joblib
+*.pkl
+
+# Secrets
+.env
+*.key
