@@ -1,13 +1,134 @@
-# Rail Corrugation Condition Monitoring — Random Forest + SHAP
+# Rail Vehicle Condition Monitoring — Hierarchical Tree Models
 
-Backend for **Problem Statement 3, Rail Corrugation**: classify each 1-second
-axle-box recording as `Normal`, `Side I`, or `Side II`.
+Backend for **Problem Statement 3**, covering all four subsystems behind a
+two-stage architecture:
 
-Scored on **macro F1** across the three classes (Info Kit §4).
+```
+            input file (.csv / .xlsx)
+                     |
+       STAGE 1  subsystem router  (deterministic schema dispatch)
+                     |
+   +---------+-------+-------+---------+----------+
+   |         |               |         |          |
+  rail      shm             acv      door      unknown
+   |         |               |         |          |
+ 3-class   damage        car ranking  segment   rejected
+ forest   regression      forest      + forest
+```
+
+## Results
+
+| Subsystem | Task | Metric | Model | Score |
+|---|---|---|---|---|
+| **Door** | segment + classify | IoU-weighted F1 | gap segmentation + RF | **1.0000** |
+| **ACV** | fault localisation | linear rank-decay | per-car RF, leave-one-case-out | **0.9792** |
+| **SHM** | **regression** | max(0, 1 − MAPE) | Miner's-rule anchor + residual RF | **0.9463** |
+| **Rail** | 3-class | macro F1 | per-side binary RF | **0.6634** |
+
+**Overall Score (÷4) = 0.8972.** All scores are cross-validated on training
+data only; see *Caveats* below for how much to trust each.
+
+## Quick start
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+.venv/bin/python -m cdm.cli rules                        # routing rules
+.venv/bin/python -m cdm.cli train                        # fit all four experts
+.venv/bin/python -m cdm.cli diagnose --input <file|dir>  # route + verdict
+.venv/bin/python -m cdm.cli predict --input <dir> --output-dir submissions/
+.venv/bin/python -m pytest tests/ -q                     # 46 tests
+```
+
+`predict` accepts a **mixed** directory: it routes each file to the right
+expert and writes all four `*_predictions.csv` in their required schemas.
+
+## Stage 1: the router is deliberately not a learned model
+
+The four subsystems' formats are mutually exclusive by construction, so the
+routing rules are exact:
+
+| Subsystem | Identified by |
+|---|---|
+| ACV | `.xlsx` with `Car <NN> - <parameter>` headers |
+| Rail | axle-box channels + a rotating-speed column (129 cols) |
+| SHM | headerless single-column stress series |
+| Door | timestamped controller stream, 10–30 columns |
+
+A classifier trained on these could at best reproduce the rules while adding a
+failure mode they do not have: a tree always returns *some* class, so an
+unrecognised file would be handed silently to the wrong expert. The rules
+return `unknown` instead, and say why — verified by test, and by feeding the
+pipeline a label CSV that it correctly refuses.
+
+## Stage 2: the four experts
+
+**Door — `cdm/experts/door.py`.** The Info Kit warns against assuming the
+opening/closing flags mark cycle boundaries, and rightly: those flags are
+asserted across the whole stream and yield *one* run. The real boundary is the
+**sampling gap** — 20 ms within a cycle, 20–47 s between them. Splitting on
+gaps > 1 s recovers all 110 training cycles at **IoU = 1.000**. With
+segmentation exact, the IoU-weighted F1 collapses algebraically to label
+accuracy. Classification keys on `current / back-EMF` (torque per unit speed —
+a direct resistance proxy), which alone reaches AUC 0.996.
+
+**ACV — `cdm/experts/acv.py`.** A refrigerant leak means lost cooling
+capacity, so the affected car cannot reach its setpoint and runs warmer than
+its seven siblings under identical conditions. Every feature is therefore
+*fleet-relative*. `acv_case_04` uses a different 63-parameter schema, so
+columns resolve through a canonical-role map rather than being hard-coded —
+which keeps a sixth of the training data in play instead of dropping it.
+
+**SHM — `cdm/experts/shm.py`.** A **regression** task. Miner's rule gives
+`D = (1/C) · Σ nᵢ·σᵢ^m`, so a real rainflow counter (ASTM E1049) extracts
+cycles and computes the stress moment `S_m` for several exponents. On this
+data `log(damage)` tracks `log(S₅)` at **r = 0.9971**. That matters: a plain
+forest over all features scores 0.907, *worse* than a one-feature linear fit
+on the physics at 0.940, because a forest adds variance to what is nearly an
+exact power law. The expert therefore anchors on the linear Miner's term and
+puts the forest on the **residual** — 0.946.
+
+**Rail — `cdm/experts/rail.py`.** Adapter over the `rail_cdm` package; the
+deep-dive below is unchanged.
+
+## Caveats
+
+- **Door's 1.0000 is on 110 training segments** and survives nested threshold
+  selection across 8 seeds, but the classes are very nearly linearly
+  separable, which suggests cleanly-injected faults. Do not expect 1.0 held out.
+- **ACV has 6 labelled cases.** Leave-one-case-out over 6 is extremely noisy;
+  0.9792 means "5 firsts and one second", and a single held-out case could
+  move it a lot. The physics-only ranking (0.8958) is the safer fallback and
+  is retained in the code.
+- **SHM assumes a single effective S-N exponent** across two lines and two
+  load conditions. The residual forest absorbs some of that, but a held-out
+  file from an unrepresented condition could sit outside the fitted range —
+  and forests cannot extrapolate.
+- **Rail is the weakest and best understood** — see below.
 
 ---
 
-## Quick start
+## Module layout
+
+| Module | Responsibility |
+|---|---|
+| `cdm/schema.py` | Cheap structural fingerprint of a file (header only) |
+| `cdm/router.py` | Stage-1 deterministic subsystem dispatch |
+| `cdm/base.py` | `SubsystemExpert` contract and `Verdict` |
+| `cdm/experts/{rail,shm,acv,door}.py` | The four stage-2 models |
+| `cdm/pipeline.py` | Route → dispatch → verdict; train/save/load all experts |
+| `cdm/cli.py` | `rules` / `train` / `diagnose` / `predict` |
+| `rail_cdm/` | The rail corrugation implementation (appendix below) |
+
+---
+
+# Appendix — Rail Corrugation deep dive
+
+The rail subsystem predates the hierarchical stack and has the most
+development behind it. `cdm/experts/rail.py` is only a thin adapter over the
+package documented here.
+
+## Rail-only commands
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt

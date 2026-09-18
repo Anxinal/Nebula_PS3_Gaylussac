@@ -1,0 +1,18 @@
+{
+  "acv": {
+    "metric": "linear rank-decay",
+    "cv_score": 0.9791666666666666
+  },
+  "door": {
+    "metric": "IoU-weighted F1",
+    "cv_score": 1.0
+  },
+  "rail": {
+    "metric": "macro F1",
+    "cv_score": 0.6634176504636954
+  },
+  "shm": {
+    "metric": "max(0, 1 - MAPE)",
+    "cv_score": 0.9463307150224697
+  }
+}
