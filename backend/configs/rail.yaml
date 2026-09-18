@@ -1,0 +1,36 @@
+# Default pipeline configuration. Override with:
+#   python -m rail_cdm.cli --config configs/rail.yaml train
+
+features:
+  # Corrugation wavelengths span "a few centimetres to dozens of centimetres"
+  # (Info Kit 1.1). Energy is integrated per band and normalised, which makes
+  # the signature independent of train speed.
+  wavelength_bands_m: [0.02, 0.04, 0.08, 0.16, 0.32, 0.64]
+  welch_nperseg: 2048
+  welch_overlap: 0.5
+  min_speed_ms: 1.0
+  pool_stats: [mean, median, p90, max, std]
+  include_side_contrast: true
+
+  # Absolute amplitude and raw speed are deliberately excluded: every fault
+  # recording in the training set sits above 9.7 m/s while 44 normal ones are
+  # stationary, so either would let the forest learn the acquisition protocol
+  # instead of the corrugation. The side-contrast log-ratios keep the useful
+  # part of amplitude while cancelling speed.
+  include_speed_feature: false
+  include_scale_features: false
+
+model:
+  strategy: per_side       # per_side | multiclass
+  n_estimators: 1200
+  min_samples_leaf: 3
+  max_features: 0.15
+  class_weight: balanced_subsample
+  random_state: 42
+  n_jobs: -1
+
+cv:
+  n_splits: 5
+  n_repeats: 4
+  random_state: 42
+  tune_threshold: true

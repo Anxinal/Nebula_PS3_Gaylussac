@@ -1,0 +1,6 @@
+# Derived feature cache - rebuilt from the raw dataset in ~10s
+artifacts/cache/
+
+# The trained model is a submission deliverable (Info Kit: "trained model plus
+# predict.py"), so it overrides the repo-wide *.joblib rule. ~900 KB.
+!artifacts/rail_forest.joblib

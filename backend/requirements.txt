@@ -1,0 +1,13 @@
+# Core numerics / IO
+numpy>=1.26,<3
+scipy>=1.11
+pandas>=2.1
+pyarrow>=14.0          # parquet feature cache
+
+# Modelling
+scikit-learn>=1.4
+shap>=0.44
+joblib>=1.3
+
+# Config
+PyYAML>=6.0
