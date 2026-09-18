@@ -1,0 +1,33 @@
+{
+  "name": "nebula-ps3-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Train Condition Monitoring console \u2014 NebulaX 2026 PS3 (Team Gaylussac)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "test": "esbuild src/test/engines.test.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/engines.test.mjs --log-level=warning && node node_modules/.cache/engines.test.mjs"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "papaparse": "^5.4.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/papaparse": "^5.3.14",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "esbuild": "^0.21.5",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

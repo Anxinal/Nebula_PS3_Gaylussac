@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Space Grotesk for display, Inter for UI text. display=swap so text paints
+         immediately in the system fallback if the fonts are slow or blocked. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <meta
+      name="description"
+      content="Train Condition Monitoring console — upload rail-vehicle sensor data and get fault predictions for Door, ACV, Rail Corrugation and SHM subsystems."
+    />
+    <title>Nebula CdM Console</title>
+    <script>
+      // Apply the theme before first paint so there is no flash. Dark is the
+      // default here; the toggle in the header stores the viewer's choice.
+      try {
+        var t = localStorage.getItem('nebula-theme')
+        document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark')
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark')
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
