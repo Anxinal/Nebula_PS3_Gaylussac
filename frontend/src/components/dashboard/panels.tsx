@@ -37,8 +37,10 @@ export interface Panel {
   small: ReactNode
   large: ReactNode
   about: string
-  facts: string[]
+  facts: ReactNode[]
   table?: ReactNode
+  /** Spans the full grid row instead of one column — for a panel left alone in an otherwise-empty slot. */
+  wide?: boolean
 }
 
 export interface DashboardSpec {
@@ -55,6 +57,25 @@ const pct = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN)
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 const listUpTo = (xs: string[], n = 8) => (xs.length > n ? `${xs.slice(0, n).join(', ')} and ${xs.length - n} more` : xs.join(', '))
+
+/**
+ * A comma list that stays readable when there are many names: the first `max`,
+ * then "… +N more" as a span carrying the rest in its `title`, so hovering (or,
+ * on touch, tapping and holding) shows the full list without cluttering the page.
+ */
+function fileList(names: string[], max = 6): ReactNode {
+  if (names.length === 0) return 'none'
+  if (names.length <= max) return names.join(', ')
+  const rest = names.slice(max)
+  return (
+    <>
+      {names.slice(0, max).join(', ')},{' '}
+      <span className="cursor-help underline decoration-dotted underline-offset-2" title={rest.join(', ')}>
+        … +{rest.length} more
+      </span>
+    </>
+  )
+}
 
 export function buildDashboard(result: SubsystemResult, fileIndex: number): DashboardSpec {
   switch (result.kind) {
@@ -440,7 +461,6 @@ function rail(r: RailResult): DashboardSpec {
   const count = (l: RailLabel) => files.filter((f) => f.prediction === l).length
   const peak = (f: (typeof files)[number]) => Math.max(f.sideI, f.sideII)
   const byPeak = [...files].sort((a, b) => peak(b) - peak(a))
-  const speeds = files.map((f) => f.speedKmh).filter((s): s is number => s !== null)
 
   const table = (
     <DataTable
@@ -450,7 +470,6 @@ function rail(r: RailResult): DashboardSpec {
         { key: 'p1', label: 'P(Side I corrugated)', align: 'right' },
         { key: 'p2', label: 'P(Side II corrugated)', align: 'right' },
         { key: 'conf', label: 'Confidence', align: 'right' },
-        { key: 'speed', label: 'Speed (km/h)', align: 'right' },
       ]}
       rows={files.map((f) => ({
         file: f.fileId,
@@ -458,7 +477,6 @@ function rail(r: RailResult): DashboardSpec {
         p1: fmt(f.sideI, 3),
         p2: fmt(f.sideII, 3),
         conf: fmt(f.confidence, 3),
-        speed: f.speedKmh !== null ? fmt(f.speedKmh, 3) : '—',
       }))}
     />
   )
@@ -504,22 +522,8 @@ function rail(r: RailResult): DashboardSpec {
       seriesLabels={['Side I', 'Side II']}
       seriesColors={[RAIL_COLOR['Side I'], RAIL_COLOR['Side II']]}
       valueLabel="P(corrugated)"
-      categoryLabel="Recording"
     />
   )
-  const speed = (compact: boolean) => (
-    <ColumnChart
-      compact={compact}
-      maxColumns={compact ? undefined : files.length}
-      data={files
-        .filter((f) => f.speedKmh !== null)
-        .map((f) => ({ label: f.fileId, value: f.speedKmh as number, color: RAIL_COLOR[f.prediction], detail: f.prediction }))}
-      valueLabel="Speed (km/h)"
-      categoryLabel="Recording"
-      legend={(['Normal', 'Side I', 'Side II'] as RailLabel[]).map((l) => ({ label: l, color: RAIL_COLOR[l] }))}
-    />
-  )
-
   return {
     kpis: [
       { label: 'Recordings', value: String(files.length) },
@@ -534,9 +538,14 @@ function rail(r: RailResult): DashboardSpec {
         small: split(true),
         large: split(false),
         about: 'How many recordings the model called Normal, corrugated on the Side I rail, or corrugated on the Side II rail.',
-        facts: (['Normal', 'Side I', 'Side II'] as RailLabel[]).map(
-          (l) => `${l}: ${plural(count(l), 'recording')} (${pct(count(l), files.length)}).`,
-        ),
+        facts: (['Normal', 'Side I', 'Side II'] as RailLabel[]).map((l) => {
+          const names = files.filter((x) => x.prediction === l).map((x) => x.fileId)
+          return (
+            <>
+              {l}: {plural(count(l), 'recording')} ({pct(count(l), files.length)}) — {fileList(names)}
+            </>
+          )
+        }),
         table,
       },
       {
@@ -559,6 +568,10 @@ function rail(r: RailResult): DashboardSpec {
         title: 'Side I vs Side II',
         small: contrast(true),
         large: contrast(false),
+        // The third panel in a two-column grid would otherwise sit alone with empty space beside it;
+        // spanning the row instead gives it the same width Class split and Corrugation probability
+        // share between them above it.
+        wide: true,
         about:
           'Each rail’s corrugation probability in every recording, as a pair of bars — Side I and Side II side by side — so the two are compared directly, not folded into one difference.',
         facts: [
@@ -566,21 +579,6 @@ function rail(r: RailResult): DashboardSpec {
         ],
         table,
       },
-      ...(speeds.length > 0
-        ? [
-            {
-              id: 'speed',
-              title: 'Train speed',
-              small: speed(true),
-              large: speed(false),
-              about: 'The train’s speed during each recording, as measured by the backend from the wheel-speed signal, coloured by the call.',
-              facts: [
-                `Speeds range from ${fmt(Math.min(...speeds), 3)} to ${fmt(Math.max(...speeds), 3)} km/h, averaging ${fmt(mean(speeds), 3)} km/h.`,
-              ],
-              table,
-            },
-          ]
-        : []),
     ],
   }
 }

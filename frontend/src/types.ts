@@ -118,6 +118,8 @@ export interface ShmResult {
 export type SubsystemResult = DoorResult | AcvResult | RailResult | ShmResult
 
 export interface RunRecord {
+  /** Unique per analysis, so running the same subsystem again adds a new entry instead of replacing the last one. */
+  id: string
   subsystem: SubsystemId
   engine: EngineId
   /** Short label for the engine, e.g. "Rule baseline v1" or "backend @ /api". */

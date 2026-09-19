@@ -53,7 +53,7 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
         className={`mx-auto flex w-full max-w-xl flex-col px-4 pb-12 pt-8 lg:h-full lg:overflow-hidden lg:px-8 lg:py-4 ${out}`}
       >
         {/* A small fixed gap above, flexible space below: sits higher than dead centre, still with no scroll */}
-        <div className="mt-[2vh] mb-auto lg:mt-[1vh]">
+        <div className="mt-[6vh] mb-auto lg:mt-[5vh]">
           <section>
             <h2 className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
               Pick where to start

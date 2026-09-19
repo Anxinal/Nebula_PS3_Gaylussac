@@ -21,7 +21,7 @@ export function PieChart({ data, compact = false }: { data: PieDatum[]; compact?
   const total = data.reduce((sum, d) => sum + d.value, 0)
   const slices = data.filter((d) => d.value > 0)
 
-  const size = compact ? 200 : 320
+  const size = compact ? 240 : 380
   const cx = size / 2
   const cy = size / 2
   const r = size * 0.34
@@ -52,7 +52,7 @@ export function PieChart({ data, compact = false }: { data: PieDatum[]; compact?
     <div className="relative flex flex-col items-center gap-3">
       <svg
         viewBox={`0 0 ${size} ${size}`}
-        className={compact ? 'w-full max-w-[11rem]' : 'w-full max-w-xs'}
+        className={compact ? 'w-full max-w-[13rem]' : 'w-full max-w-sm'}
         role="img"
         aria-label={`${data.map((d) => `${d.label}: ${d.value}`).join(', ')}`}
       >

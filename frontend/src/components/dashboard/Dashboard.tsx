@@ -9,22 +9,32 @@ import type { RunRecord } from '../../types'
  * opens it full size on its own page, with what it shows and what the data says,
  * and the rows behind it. The model's own reasoning — "why" it decided this —
  * sits at the bottom, for whoever wants to dig past the verdict.
+ *
+ * Which panel (if any) is open full-size is owned by the caller, not this
+ * component — the header's "Back to dashboard" button needs to see and clear
+ * it too, so it lives in App.tsx alongside "Back to analyse" and "Past analysis".
  */
-export function Dashboard({ run }: { run: RunRecord }) {
+export function Dashboard({
+  run,
+  openPanelId,
+  onOpenPanel,
+}: {
+  run: RunRecord
+  openPanelId: string | null
+  onOpenPanel: (id: string | null) => void
+}) {
   const [fileIndex, setFileIndex] = useState(0)
-  const [openId, setOpenId] = useState<string | null>(null)
   const spec = buildDashboard(run.result, fileIndex)
   const verdict = buildVerdict(run.result)
-  const open = spec.panels.find((p) => p.id === openId)
+  const open = spec.panels.find((p) => p.id === openPanelId)
 
   // A new run (or subsystem) starts back on the grid, on its first file.
   useEffect(() => {
-    setOpenId(null)
     setFileIndex(0)
   }, [run])
 
   const openPanel = (id: string) => {
-    setOpenId(id)
+    onOpenPanel(id)
     window.scrollTo({ top: 0 })
   }
 
@@ -48,19 +58,8 @@ export function Dashboard({ run }: { run: RunRecord }) {
   if (open) {
     return (
       <section className="fade-in space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            className="btn-ghost !px-3 !py-1.5 text-sm"
-            onClick={() => {
-              setOpenId(null)
-              window.scrollTo({ top: 0 })
-            }}
-          >
-            <span aria-hidden>←</span> Back to dashboard
-          </button>
-          {fileSelect}
-        </div>
+        {/* "Back to dashboard" now lives in the header, beside "Past analysis". */}
+        {fileSelect && <div className="flex justify-end">{fileSelect}</div>}
         <h2 className="display text-2xl font-bold tracking-tight text-ink">{open.title}</h2>
         <div className="card p-4 sm:p-6">{open.large}</div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -148,7 +147,7 @@ export function Dashboard({ run }: { run: RunRecord }) {
                 openPanel(p.id)
               }
             }}
-            className="card pick-card group flex cursor-pointer flex-col p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-lg"
+            className={`card pick-card group flex cursor-pointer flex-col p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-lg ${p.wide ? 'md:col-span-2' : ''}`}
             aria-label={`Open ${p.title}`}
           >
             <span className="flex w-full items-center justify-between gap-2">

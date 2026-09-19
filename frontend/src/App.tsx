@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Backdrop } from './components/Backdrop'
 import { Home } from './components/Home'
 import { InfoHint } from './components/InfoHint'
@@ -7,7 +7,7 @@ import { Header } from './components/Header'
 import { SubsystemPicker } from './components/SubsystemPicker'
 import { Dropzone } from './components/Dropzone'
 import { Dashboard } from './components/dashboard/Dashboard'
-import { SUBSYSTEMS, SUBSYSTEM_ORDER } from './subsystems'
+import { SUBSYSTEMS } from './subsystems'
 import { checkHealth, getApiBase, type BackendHealth } from './lib/api'
 import { runSubsystem, type RunProgress } from './lib/runner'
 import { downloadText } from './lib/predictionCsv'
@@ -26,12 +26,16 @@ export default function App() {
   const [view, setView] = useState<View>(() => (typeof location !== 'undefined' ? viewFromHash(location.hash) : 'home'))
   const [subsystem, setSubsystem] = useState<SubsystemId | null>(null)
   const [files, setFiles] = useState<File[]>([])
-  // Past analyses survive a reload: loaded once from this browser's storage, saved back on every change.
-  const [runs, setRuns] = useState<Map<SubsystemId, RunRecord>>(loadRuns)
+  // Every completed analysis survives a reload: loaded once from storage, saved back on every change.
+  // Running the same subsystem again adds a new entry rather than replacing the last one.
+  const [runs, setRuns] = useState<RunRecord[]>(loadRuns)
   const [progress, setProgress] = useState<RunProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // Which subsystem's result the results page shows.
-  const [resultTab, setResultTab] = useState<SubsystemId | null>(null)
+  // Which specific run the results page shows.
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
+  // Which chart (if any) is open full-size within that run's dashboard; the header's
+  // "Back to dashboard" button needs to see and clear this too.
+  const [openPanelId, setOpenPanelId] = useState<string | null>(null)
 
   // A backend address saved earlier is still honoured; there is no longer a control to change it.
   const [apiBase] = useState(getApiBase)
@@ -73,7 +77,6 @@ export default function App() {
   }
 
   const meta = subsystem ? SUBSYSTEMS[subsystem] : null
-  const activeRun = subsystem ? runs.get(subsystem) : undefined
   const backendReady = health.reachable && subsystem !== null && health.models[subsystem] !== false
 
   const onRun = async () => {
@@ -87,9 +90,10 @@ export default function App() {
     try {
       const record = await runSubsystem(subsystem, files, { apiBase, useBackend: backendReady, onProgress: setProgress })
       await holdLoading()
-      setRuns((prev) => new Map(prev).set(subsystem, record))
-      // Straight on to the results page once the analysis is in, on this subsystem's tab.
-      setResultTab(subsystem)
+      // Appended, never replacing an earlier run of the same subsystem — e.g. Door Fault tried with
+      // 3 files, then again with 5, both stay reachable from "Past analysis".
+      setRuns((prev) => [...prev, record])
+      setActiveRunId(record.id)
       location.hash = '#/results'
       window.scrollTo({ top: 0 })
     } catch (err) {
@@ -101,9 +105,14 @@ export default function App() {
     }
   }
 
-  const completed = useMemo(() => new Set(runs.keys()), [runs])
-  // The subsystem the results page shows: the one just picked, or else the first with a result.
-  const shownResult = resultTab && runs.has(resultTab) ? resultTab : (SUBSYSTEM_ORDER.find((id) => runs.has(id)) ?? null)
+  // The run the results page shows: the one just picked, or else the most recent.
+  const runsByRecency = [...runs].sort((a, b) => b.finishedAt - a.finishedAt)
+  const shownRun = runsByRecency.find((r) => r.id === activeRunId) ?? runsByRecency[0]
+
+  // A freshly opened (or switched-to) run always starts on its own dashboard grid, not mid-chart.
+  useEffect(() => {
+    setOpenPanelId(null)
+  }, [shownRun?.id])
 
   return (
     // The home page fits the window on wide screens (no page scroll); the console grows as it needs.
@@ -122,9 +131,19 @@ export default function App() {
         <Header
           onHome={goHome}
           showHome={view === 'console'}
+          showBackToAnalyse={view === 'results'}
+          onBackToAnalyse={() => {
+            location.hash = '#/app'
+            window.scrollTo({ top: 0 })
+          }}
+          showBackToDashboard={view === 'results' && openPanelId !== null}
+          onBackToDashboard={() => {
+            setOpenPanelId(null)
+            window.scrollTo({ top: 0 })
+          }}
           runs={runs}
           onSelectRun={(id) => {
-            setResultTab(id)
+            setActiveRunId(id)
             location.hash = '#/results'
             window.scrollTo({ top: 0 })
           }}
@@ -166,7 +185,7 @@ export default function App() {
 
       {view === 'console' && !loading && (
       <main className="fade-in mx-auto max-w-6xl space-y-6 px-4 pb-6 pt-2">
-        <section>
+        <section className="pt-6 sm:pt-8">
           <div className="mb-7 text-center">
             <h1 className="display text-4xl font-black uppercase tracking-tight text-ink sm:text-5xl">Select a subsystem</h1>
             <p className="mt-2.5 inline-flex items-center gap-1.5 text-lg text-ink-secondary">
@@ -193,7 +212,6 @@ export default function App() {
           </div>
           <SubsystemPicker
             active={subsystem}
-            completed={completed}
             onSelect={(id) => {
               setSubsystem(id)
               setFiles([])
@@ -229,7 +247,7 @@ export default function App() {
               </p>
             )}
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="mt-4 flex justify-center">
               <button
                 type="button"
                 className="btn-primary"
@@ -238,28 +256,6 @@ export default function App() {
               >
                 {progress ? 'Analysing…' : 'Analyse'}
               </button>
-              {activeRun && (
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={() => {
-                    if (subsystem) setResultTab(subsystem)
-                    location.hash = '#/results'
-                  }}
-                >
-                  View result →
-                </button>
-              )}
-              {activeRun && (
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={() => downloadText(activeRun.csv.filename, activeRun.csv.content)}
-                >
-                  <DownloadIcon />
-                  {activeRun.csv.filename}
-                </button>
-              )}
             </div>
 
             {error && (
@@ -283,50 +279,42 @@ export default function App() {
       </main>
       )}
 
-      {view === 'results' &&
-        !loading &&
-        (() => {
-          const tabRun = shownResult ? runs.get(shownResult) : undefined
-          return (
-            <main className="fade-in mx-auto max-w-6xl space-y-6 px-4 pb-6 pt-4">
-              {/* Which subsystems are open is handled by the bar under the header; this row is page actions only */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <button type="button" className="btn-ghost !px-3 !py-1.5 text-sm" onClick={() => (location.hash = '#/app')}>
-                  <span aria-hidden>←</span> Back to analyse
-                </button>
-                {tabRun && (
-                  <button
-                    type="button"
-                    className="btn-ghost !px-3 !py-1.5 text-sm"
-                    onClick={() => downloadText(tabRun.csv.filename, tabRun.csv.content)}
-                  >
-                    <DownloadIcon />
-                    {tabRun.csv.filename}
-                  </button>
-                )}
+      {view === 'results' && !loading && (
+        <main className="fade-in mx-auto max-w-6xl space-y-6 px-4 pb-6 pt-4">
+          {/* "Back to analyse" now lives in the header, alongside "Past analysis"; the download stays here. */}
+          {shownRun && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="btn-ghost !px-3 !py-1.5 text-sm"
+                onClick={() => downloadText(shownRun.csv.filename, shownRun.csv.content)}
+              >
+                <DownloadIcon />
+                {shownRun.csv.filename}
+              </button>
+            </div>
+          )}
+
+          {shownRun ? (
+            <section className="space-y-6">
+              <div className="text-center">
+                <h1 className="display text-3xl font-black uppercase tracking-tight text-ink sm:text-4xl">
+                  {SUBSYSTEMS[shownRun.subsystem].name}
+                </h1>
+                <p className="mt-2 text-sm text-ink-muted">
+                  {shownRun.engineLabel} · {shownRun.inputFiles.length} file{shownRun.inputFiles.length === 1 ? '' : 's'}
+                </p>
               </div>
 
-              {shownResult && tabRun ? (
-                <section className="space-y-6">
-                  <div className="text-center">
-                    <h1 className="display text-3xl font-black uppercase tracking-tight text-ink sm:text-4xl">
-                      {SUBSYSTEMS[shownResult].name}
-                    </h1>
-                    <p className="mt-2 text-sm text-ink-muted">
-                      {tabRun.engineLabel} · {tabRun.inputFiles.length} file{tabRun.inputFiles.length === 1 ? '' : 's'}
-                    </p>
-                  </div>
-
-                  <Dashboard run={tabRun} />
-                </section>
-              ) : (
-                <section className="card p-6 text-center">
-                  <p className="text-ink-secondary">No result yet. Pick a subsystem, drop in data and press Analyse.</p>
-                </section>
-              )}
-            </main>
-          )
-        })()}
+              <Dashboard run={shownRun} openPanelId={openPanelId} onOpenPanel={setOpenPanelId} />
+            </section>
+          ) : (
+            <section className="card p-6 text-center">
+              <p className="text-ink-secondary">No result yet. Pick a subsystem, drop in data and press Analyse.</p>
+            </section>
+          )}
+        </main>
+      )}
     </div>
   )
 }

@@ -60,6 +60,8 @@ export async function runSubsystem(
   opts.onProgress?.({ done: 1, total: 1, label: 'Results in' })
 
   return {
+    // Random suffix as well as the time, so two runs finishing in the same millisecond still get distinct ids.
+    id: `${subsystem}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     subsystem,
     engine: 'backend',
     engineLabel: 'Trained model',

@@ -29,8 +29,8 @@ export function GroupedColumnChart({
   seriesColors: string[]
   /** Title of the vertical (value) axis. */
   valueLabel: string
-  /** Title of the horizontal (category) axis. */
-  categoryLabel: string
+  /** Title of the horizontal (category) axis. Omit it when the bars' own labels already say what they are. */
+  categoryLabel?: string
   compact?: boolean
   maxColumns?: number
 }) {
@@ -53,7 +53,7 @@ export function GroupedColumnChart({
   const PAD_R = 12
   const PAD_T = 12
   const PLOT_H = compact ? 130 : 240
-  const PAD_B = LABEL_H + 26
+  const PAD_B = LABEL_H + (categoryLabel ? 26 : 8)
   const height = PAD_T + PLOT_H + PAD_B
 
   const y = linearScale([0, max || 1], [PAD_T + PLOT_H, PAD_T])
@@ -66,8 +66,10 @@ export function GroupedColumnChart({
   const barW = Math.max(2, (groupW - barGap * (n - 1)) / n)
 
   return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label={`${valueLabel} by ${categoryLabel}`}>
+    // Centred and capped to about a third of the row's width — ~65% smaller than filling it — since
+    // this chart now shares a full-width row of its own rather than a half-width slot beside a sibling.
+    <div className="relative mx-auto min-w-[18rem] max-w-[35%]">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label={categoryLabel ? `${valueLabel} by ${categoryLabel}` : valueLabel}>
         {tickValues.map((t) => (
           <g key={t}>
             <line x1={PAD_L} x2={width - PAD_R} y1={y(t)} y2={y(t)} stroke={CHART_INK.grid} strokeWidth={1} />
@@ -139,16 +141,18 @@ export function GroupedColumnChart({
         >
           {valueLabel}
         </text>
-        <text
-          x={PAD_L + (width - PAD_L - PAD_R) / 2}
-          y={height - 6}
-          textAnchor="middle"
-          fontSize={12}
-          fontWeight={600}
-          fill={CHART_INK.secondary}
-        >
-          {categoryLabel}
-        </text>
+        {categoryLabel && (
+          <text
+            x={PAD_L + (width - PAD_L - PAD_R) / 2}
+            y={height - 6}
+            textAnchor="middle"
+            fontSize={12}
+            fontWeight={600}
+            fill={CHART_INK.secondary}
+          >
+            {categoryLabel}
+          </text>
+        )}
       </svg>
       <ChartTooltip tip={tip} />
       <ul className="mt-1 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[0.7rem] text-ink-secondary">

@@ -5,11 +5,9 @@ import type { SubsystemId } from '../types'
 
 export function SubsystemPicker({
   active,
-  completed,
   onSelect,
 }: {
   active: SubsystemId | null
-  completed: Set<SubsystemId>
   onSelect: (id: SubsystemId) => void
 }) {
   return (
@@ -18,7 +16,6 @@ export function SubsystemPicker({
         const meta = SUBSYSTEMS[id]
         const Icon = SUBSYSTEM_ICON[id]
         const isActive = active === id
-        const isDone = completed.has(id)
         return (
           <div key={id} className="relative">
             <button
@@ -52,18 +49,6 @@ export function SubsystemPicker({
 
               <span className="display mt-4 text-2xl font-bold tracking-tight text-ink">{meta.name}</span>
               <span className="mt-1.5 text-base leading-snug text-ink-secondary">{meta.tagline}</span>
-
-              {isDone && (
-                <span
-                  className="mt-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium"
-                  style={{
-                    color: 'var(--status-good)',
-                    background: 'color-mix(in srgb, var(--status-good) 14%, transparent)',
-                  }}
-                >
-                  <span aria-hidden>✓</span> ready
-                </span>
-              )}
             </button>
 
             {/* Outside the button: a control inside a button is not valid markup. */}
