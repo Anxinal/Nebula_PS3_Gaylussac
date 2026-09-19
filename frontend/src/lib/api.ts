@@ -132,6 +132,7 @@ function normalise(subsystem: SubsystemId, body: any): SubsystemResult {
         rowCount: s.n_rows ?? s.rowCount,
         startOffsetSec: s.start_offset_sec,
         endOffsetSec: s.end_offset_sec,
+        confidence: s.confidence,
         explanation: toExplanation(s.explanation),
       }))
       const result: DoorResult = {
@@ -154,9 +155,9 @@ function normalise(subsystem: SubsystemId, body: any): SubsystemResult {
             fileId: String(f.file_id ?? f.fileId),
             cars: ranked.map((car, i) => ({
               car: String(car),
-              score: Number(f.scores?.[car] ?? ranked.length - i),
+              score: Number(f.scores?.[car] ?? NaN),
               rank: i + 1,
-              evidence: f.evidence?.[car] ?? 'Ranked by the model backend',
+              evidence: f.evidence?.[car] ?? 'no evidence sent',
             })),
             series: f.series ?? [],
             sampleCount: f.sample_count ?? 0,
@@ -172,9 +173,9 @@ function normalise(subsystem: SubsystemId, body: any): SubsystemResult {
         files: (body.files ?? []).map((f: any) => ({
           fileId: String(f.file_id ?? f.fileId),
           prediction: f.prediction,
-          confidence: Number(f.confidence ?? 1),
-          sideI: Number(f.side_i ?? 0),
-          sideII: Number(f.side_ii ?? 0),
+          confidence: Number(f.confidence ?? NaN),
+          sideI: Number(f.side_i ?? NaN),
+          sideII: Number(f.side_ii ?? NaN),
           rowCount: Number(f.n_rows ?? 0),
           speedKmh: f.speed_kmh ?? null,
           explanation: toExplanation(f.explanation),

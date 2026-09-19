@@ -1,0 +1,138 @@
+import { useEffect, useState } from 'react'
+import { WhyPanel } from '../results/WhyPanel'
+import { buildDashboard } from './panels'
+import type { RunRecord } from '../../types'
+
+/**
+ * One subsystem's result as a dashboard: headline figures across the top, then a
+ * grid of small charts. Clicking a chart opens it full size on its own page, with
+ * what it shows and what the data says, and the rows behind it. The model's own
+ * explanation sits at the bottom of the dashboard.
+ */
+export function Dashboard({ run }: { run: RunRecord }) {
+  const [fileIndex, setFileIndex] = useState(0)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const spec = buildDashboard(run.result, fileIndex)
+  const open = spec.panels.find((p) => p.id === openId)
+
+  // A new run (or subsystem) starts back on the grid, on its first file.
+  useEffect(() => {
+    setOpenId(null)
+    setFileIndex(0)
+  }, [run])
+
+  const openPanel = (id: string) => {
+    setOpenId(id)
+    window.scrollTo({ top: 0 })
+  }
+
+  const fileSelect = spec.files && spec.files.length > 1 && (
+    <label className="flex items-center gap-2 text-sm text-ink-secondary">
+      {spec.fileNoun ?? 'File'}
+      <select
+        className="rounded-md border border-hairline bg-surface px-2 py-1 text-sm text-ink"
+        value={Math.min(fileIndex, spec.files.length - 1)}
+        onChange={(e) => setFileIndex(Number(e.target.value))}
+      >
+        {spec.files.map((name, i) => (
+          <option key={name} value={i}>
+            {name}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+
+  if (open) {
+    return (
+      <section className="fade-in space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            className="btn-ghost !px-3 !py-1.5 text-sm"
+            onClick={() => {
+              setOpenId(null)
+              window.scrollTo({ top: 0 })
+            }}
+          >
+            <span aria-hidden>←</span> Back to dashboard
+          </button>
+          {fileSelect}
+        </div>
+        <h2 className="display text-2xl font-bold tracking-tight text-ink">{open.title}</h2>
+        <div className="card p-4 sm:p-6">{open.large}</div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="card p-4">
+            <h3 className="eyebrow">What this shows</h3>
+            <p className="mt-2 text-sm leading-relaxed text-ink-secondary">{open.about}</p>
+          </div>
+          <div className="card p-4">
+            <h3 className="eyebrow">What the data says</h3>
+            {open.facts.length > 0 ? (
+              <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-ink-secondary">
+                {open.facts.map((f, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span aria-hidden className="text-ink-muted">·</span>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-ink-muted">Nothing further to report from this result.</p>
+            )}
+          </div>
+        </div>
+        {open.table && <div className="card overflow-hidden">{open.table}</div>}
+      </section>
+    )
+  }
+
+  return (
+    <section className="space-y-4">
+      {fileSelect && <div className="flex justify-end">{fileSelect}</div>}
+
+      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {spec.kpis.map((k) => (
+          <div key={k.label} className="card px-4 py-3">
+            <dt className="eyebrow">{k.label}</dt>
+            <dd className="display tnum mt-1 truncate text-2xl font-bold leading-tight" style={{ color: k.tone ?? 'var(--text-primary)' }}>
+              {k.value}
+            </dd>
+            {k.sub && <dd className="mt-0.5 truncate text-xs text-ink-secondary">{k.sub}</dd>}
+          </div>
+        ))}
+      </dl>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {spec.panels.map((p) => (
+          // A clickable tile rather than a <button>: it holds whole charts, which a button may not contain.
+          <div
+            key={p.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => openPanel(p.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                openPanel(p.id)
+              }
+            }}
+            className="card pick-card group flex cursor-pointer flex-col p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-lg"
+            aria-label={`Open ${p.title}`}
+          >
+            <span className="flex w-full items-center justify-between gap-2">
+              <span className="truncate text-sm font-semibold text-ink">{p.title}</span>
+              <span aria-hidden className="shrink-0 text-xs text-ink-muted transition-transform group-hover:translate-x-0.5">
+                Open →
+              </span>
+            </span>
+            <div className="mt-2 w-full">{p.small}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* The model's reasoning goes last, under the data it explains */}
+      <WhyPanel result={run.result} />
+    </section>
+  )
+}

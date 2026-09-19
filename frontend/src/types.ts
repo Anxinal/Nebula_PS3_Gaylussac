@@ -38,6 +38,8 @@ export interface DoorSegment {
   /** Seconds from the start of the stream, for timeline placement. */
   startOffsetSec?: number
   endOffsetSec?: number
+  /** The model's P(abnormal resistance) for this cycle. */
+  confidence?: number
   explanation?: Explanation
 }
 

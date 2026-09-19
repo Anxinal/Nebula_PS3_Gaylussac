@@ -261,6 +261,19 @@ body {
   }
 }
 
+/* Load bar while the backend works: a segment that sweeps across, since no partial progress is reported. */
+.load-indeterminate {
+  animation: load-sweep 1.2s ease-in-out infinite;
+}
+@keyframes load-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
 /* The home page's right panel sliding away once a subsystem is picked. */
 .panel-out {
   animation: panel-out 0.28s cubic-bezier(0.55, 0, 1, 0.45) forwards;
