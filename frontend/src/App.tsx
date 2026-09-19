@@ -3,6 +3,7 @@ import { Backdrop } from './components/Backdrop'
 import { Home } from './components/Home'
 import { InfoHint } from './components/InfoHint'
 import { WhyPanel } from './components/results/WhyPanel'
+import { Overview } from './components/results/Overview'
 import { DownloadIcon, AlertIcon } from './components/icons'
 import { Header } from './components/Header'
 import { SubsystemPicker } from './components/SubsystemPicker'
@@ -12,7 +13,7 @@ import { DoorResults } from './components/results/DoorResults'
 import { AcvResults } from './components/results/AcvResults'
 import { RailResults } from './components/results/RailResults'
 import { ShmResults } from './components/results/ShmResults'
-import { SUBSYSTEMS } from './subsystems'
+import { SUBSYSTEMS, SUBSYSTEM_ORDER } from './subsystems'
 import { checkHealth, getApiBase, type BackendHealth } from './lib/api'
 import { runSubsystem, type RunProgress } from './lib/runner'
 import { downloadText } from './lib/predictionCsv'
@@ -20,6 +21,14 @@ import { DEFAULT_CALIBRATION, type ShmCalibration } from './lib/engines/shm'
 import type { RunRecord, SubsystemId } from './types'
 
 const CAL_KEY = 'nebula-shm-calibration'
+
+// Short names for the result tabs, so all five fit across the page.
+const TAB_LABEL: Record<SubsystemId, string> = {
+  door: 'Door Fault',
+  acv: 'Air Con (ACV)',
+  rail: 'Rail Corrugation',
+  shm: 'Structural Health (SHM)',
+}
 
 type View = 'home' | 'console' | 'results'
 const viewFromHash = (hash: string): View =>
@@ -34,6 +43,8 @@ export default function App() {
   const [runs, setRuns] = useState<Map<SubsystemId, RunRecord>>(new Map())
   const [progress, setProgress] = useState<RunProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Which tab the results page shows: the fleet overview, or one subsystem's full result.
+  const [resultTab, setResultTab] = useState<'overview' | SubsystemId>('overview')
 
   // A backend address saved earlier is still honoured; there is no longer a control to change it.
   const [apiBase] = useState(getApiBase)
@@ -93,7 +104,8 @@ export default function App() {
         },
       })
       setRuns((prev) => new Map(prev).set(subsystem, record))
-      // Straight on to the results page once the analysis is in.
+      // Straight on to the results page once the analysis is in, on this subsystem's tab.
+      setResultTab(subsystem)
       location.hash = '#/results'
       window.scrollTo({ top: 0 })
     } catch (err) {
@@ -135,15 +147,18 @@ export default function App() {
                   : 'Files never leave your device. Parsing, feature extraction and the prediction all run in this browser tab.'}
               </InfoHint>
             </p>
+            {/* What the backend reported (which models are ready, or why it could not be reached) */}
+            <p className="mt-1 text-sm text-ink-muted" aria-live="polite">
+              {health.detail}
+            </p>
             {/* Whether the trained models are reachable; the app falls back to the in-browser baselines if not */}
-            <p className="mt-2 flex items-center justify-center gap-2 text-sm text-ink-secondary" aria-live="polite">
+            <p className="mt-2 flex items-center justify-center gap-2 text-sm text-ink-secondary">
               <span
                 aria-hidden
                 className="h-2 w-2 rounded-full"
                 style={{ background: health.reachable ? 'var(--status-good)' : 'var(--text-muted)' }}
               />
               {health.reachable ? 'Connected to the trained models' : 'Model backend offline — using in-browser baselines'}
-              <InfoHint label="About the model backend">{health.detail}</InfoHint>
               {!health.reachable && (
                 <button type="button" className="btn-ghost !px-2 !py-0.5 text-xs" onClick={() => void recheck()}>
                   Retry
@@ -209,7 +224,14 @@ export default function App() {
                 {progress ? 'Analysing…' : 'Analyse'}
               </button>
               {activeRun && (
-                <button type="button" className="btn-ghost" onClick={() => (location.hash = '#/results')}>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => {
+                    if (subsystem) setResultTab(subsystem)
+                    location.hash = '#/results'
+                  }}
+                >
                   View result →
                 </button>
               )}
@@ -270,59 +292,99 @@ export default function App() {
       </main>
       )}
 
-      {view === 'results' && (
-        <main className="fade-in mx-auto max-w-6xl space-y-6 px-4 pb-6 pt-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <button type="button" className="btn-ghost !px-3 !py-1.5 text-sm" onClick={() => (location.hash = '#/app')}>
-              <span aria-hidden>←</span> Back to analyse
-            </button>
-            {activeRun && (
-              <button
-                type="button"
-                className="btn-ghost !px-3 !py-1.5 text-sm"
-                onClick={() => downloadText(activeRun.csv.filename, activeRun.csv.content)}
-              >
-                <DownloadIcon />
-                {activeRun.csv.filename}
-              </button>
-            )}
-          </div>
-
-          {subsystem && activeRun ? (
-            <section className="space-y-6">
-              <div className="text-center">
-                <h1 className="display text-3xl font-black uppercase tracking-tight text-ink sm:text-4xl">
-                  {SUBSYSTEMS[subsystem].name}
-                </h1>
-                <p className="mt-2 text-sm text-ink-muted">
-                  {activeRun.engine === 'backend' ? 'Trained model' : 'Baseline'} · {activeRun.engineLabel} ·{' '}
-                  {activeRun.inputFiles.length} file{activeRun.inputFiles.length === 1 ? '' : 's'}
-                </p>
+      {view === 'results' &&
+        (() => {
+          const tabRun = resultTab === 'overview' ? undefined : runs.get(resultTab)
+          const tabs: { id: 'overview' | SubsystemId; label: string; enabled: boolean }[] = [
+            { id: 'overview', label: 'Fleet overview', enabled: true },
+            ...SUBSYSTEM_ORDER.map((id) => ({ id, label: TAB_LABEL[id], enabled: runs.has(id) })),
+          ]
+          return (
+            <main className="fade-in mx-auto max-w-6xl space-y-6 px-4 pb-6 pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button type="button" className="btn-ghost !px-3 !py-1.5 text-sm" onClick={() => (location.hash = '#/app')}>
+                  <span aria-hidden>←</span> Back to analyse
+                </button>
+                {tabRun && (
+                  <button
+                    type="button"
+                    className="btn-ghost !px-3 !py-1.5 text-sm"
+                    onClick={() => downloadText(tabRun.csv.filename, tabRun.csv.content)}
+                  >
+                    <DownloadIcon />
+                    {tabRun.csv.filename}
+                  </button>
+                )}
               </div>
 
-              {activeRun.warnings.length > 0 && (
-                <ul className="card space-y-1.5 px-4 py-3 text-xs text-ink-secondary">
-                  {activeRun.warnings.map((w, i) => (
-                    <li key={i}>· {w}</li>
-                  ))}
-                </ul>
+              {/* Tabs across the top: the overview, then each subsystem that has a result */}
+              <div role="tablist" aria-label="Results" className="flex gap-1 overflow-x-auto border-b border-hairline">
+                {tabs.map((t) => {
+                  const selected = resultTab === t.id
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      disabled={!t.enabled}
+                      title={t.enabled ? undefined : 'Not analysed yet'}
+                      onClick={() => setResultTab(t.id)}
+                      className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors
+                                  disabled:cursor-not-allowed disabled:opacity-40 ${
+                                    selected ? 'text-ink' : 'border-transparent text-ink-secondary hover:text-ink'
+                                  }`}
+                      style={selected ? { borderColor: 'var(--series-1)' } : undefined}
+                    >
+                      {t.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {resultTab === 'overview' || !tabRun ? (
+                <Overview
+                  runs={runs}
+                  onOpen={setResultTab}
+                  onAnalyse={(id) => {
+                    setSubsystem(id)
+                    setFiles([])
+                    setError(null)
+                    location.hash = '#/app'
+                  }}
+                />
+              ) : (
+                <section role="tabpanel" className="space-y-6">
+                  <div className="text-center">
+                    <h1 className="display text-3xl font-black uppercase tracking-tight text-ink sm:text-4xl">
+                      {SUBSYSTEMS[resultTab].name}
+                    </h1>
+                    <p className="mt-2 text-sm text-ink-muted">
+                      {tabRun.engine === 'backend' ? 'Trained model' : 'Baseline'} · {tabRun.engineLabel} ·{' '}
+                      {tabRun.inputFiles.length} file{tabRun.inputFiles.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+
+                  {tabRun.warnings.length > 0 && (
+                    <ul className="card space-y-1.5 px-4 py-3 text-xs text-ink-secondary">
+                      {tabRun.warnings.map((w, i) => (
+                        <li key={i}>· {w}</li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {tabRun.result.kind === 'door' && <DoorResults result={tabRun.result} />}
+                  {tabRun.result.kind === 'acv' && <AcvResults result={tabRun.result} />}
+                  {tabRun.result.kind === 'rail' && <RailResults result={tabRun.result} />}
+                  {tabRun.result.kind === 'shm' && <ShmResults result={tabRun.result} />}
+
+                  {/* The model's reasoning goes last, under the data it explains */}
+                  {tabRun.engine === 'backend' && <WhyPanel result={tabRun.result} />}
+                </section>
               )}
-
-              {activeRun.result.kind === 'door' && <DoorResults result={activeRun.result} />}
-              {activeRun.result.kind === 'acv' && <AcvResults result={activeRun.result} />}
-              {activeRun.result.kind === 'rail' && <RailResults result={activeRun.result} />}
-              {activeRun.result.kind === 'shm' && <ShmResults result={activeRun.result} />}
-
-              {/* The model's reasoning goes last, under the data it explains */}
-              {activeRun.engine === 'backend' && <WhyPanel result={activeRun.result} />}
-            </section>
-          ) : (
-            <section className="card p-6 text-center">
-              <p className="text-ink-secondary">No result yet. Pick a subsystem, drop in data and press Analyse.</p>
-            </section>
-          )}
-        </main>
-      )}
+            </main>
+          )
+        })()}
     </div>
   )
 }

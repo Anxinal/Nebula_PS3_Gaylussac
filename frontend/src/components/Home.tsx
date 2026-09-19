@@ -50,82 +50,85 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
       </div>
 
       <div
-        className={`mx-auto flex w-full max-w-xl flex-col justify-center px-4 pb-12 pt-8 lg:h-full lg:overflow-y-auto lg:px-8 lg:py-6 ${out}`}
+        className={`mx-auto flex w-full max-w-xl flex-col px-4 pb-12 pt-8 lg:h-full lg:overflow-hidden lg:px-8 lg:py-4 ${out}`}
       >
-        <section>
-          <h2 className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
-            Pick where to start
-          </h2>
+        {/* Auto margins centre the panel vertically; the cards are compact enough that it fits without scrolling */}
+        <div className="my-auto">
+          <section>
+            <h2 className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
+              Pick where to start
+            </h2>
 
-          <div className="mt-3 grid gap-3">
-            {SUBSYSTEM_ORDER.map((id) => {
-              const meta = SUBSYSTEMS[id]
-              const Icon = SUBSYSTEM_ICON[id]
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => pick(id)}
-                  className="card pick-card group flex items-center gap-4 px-5 py-4 text-left transition-all
-                             hover:-translate-y-0.5 hover:shadow-lg"
-                >
+            <div className="mt-2.5 grid gap-2">
+              {SUBSYSTEM_ORDER.map((id) => {
+                const meta = SUBSYSTEMS[id]
+                const Icon = SUBSYSTEM_ICON[id]
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => pick(id)}
+                    className="card pick-card group flex items-center gap-3 px-4 py-2 text-left transition-all
+                               hover:-translate-y-0.5 hover:shadow-lg"
+                  >
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[1.15rem]"
+                      style={{
+                        color: 'var(--series-1)',
+                        background: 'color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 16%, transparent)',
+                        // A thin tinted edge and a soft glow around the tile
+                        boxShadow: `0 0 0 1px color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 30%, transparent), 0 0 14px color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 35%, transparent)`,
+                      }}
+                    >
+                      <Icon />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="display block text-sm font-bold leading-tight text-ink">
+                        {meta.name}
+                        <span
+                          aria-hidden
+                          className="ml-1.5 inline-block transition-transform group-hover:translate-x-1"
+                          style={{ color: 'var(--series-1)' }}
+                        >
+                          →
+                        </span>
+                      </span>
+                      <span className="block text-xs leading-snug text-ink-secondary">{meta.tagline}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="mt-4">
+            <h2 className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
+              How it works
+            </h2>
+            <ol className="mt-2 space-y-1.5">
+              {[
+                ['Choose', 'Pick the subsystem you have data for'],
+                ['Drop', 'Drag in a file, or a whole folder at once'],
+                ['Read & download', 'See what it found, then take the CSV'],
+              ].map(([title, body], i) => (
+                <li key={title} className="flex items-center gap-3.5">
                   <span
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-[1.5rem]"
+                    className="display flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-bold"
                     style={{
                       color: 'var(--series-1)',
-                      background: 'color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 16%, transparent)',
-                      // A thin tinted edge and a soft glow around the tile
-                      boxShadow: `0 0 0 1px color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 30%, transparent), 0 0 14px color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 35%, transparent)`,
+                      background: 'color-mix(in srgb, var(--series-1) 14%, transparent)',
                     }}
                   >
-                    <Icon />
+                    {i + 1}
                   </span>
-                  <span className="min-w-0">
-                    <span className="display block text-lg font-bold text-ink">
-                      {meta.name}
-                      <span
-                        aria-hidden
-                        className="ml-1.5 inline-block transition-transform group-hover:translate-x-1"
-                        style={{ color: 'var(--series-1)' }}
-                      >
-                        →
-                      </span>
-                    </span>
-                    <span className="mt-0.5 block text-sm leading-snug text-ink-secondary">{meta.tagline}</span>
+                  <span className="text-xs leading-snug text-ink-secondary">
+                    <strong className="text-ink">{title}</strong> — {body}
                   </span>
-                </button>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className="mt-6">
-          <h2 className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
-            How it works
-          </h2>
-          <ol className="mt-3 space-y-2">
-            {[
-              ['Choose', 'Pick the subsystem you have data for'],
-              ['Drop', 'Drag in a file, or a whole folder at once'],
-              ['Read & download', 'See what it found, then take the CSV'],
-            ].map(([title, body], i) => (
-              <li key={title} className="flex items-center gap-3.5">
-                <span
-                  className="display flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                  style={{
-                    color: 'var(--series-1)',
-                    background: 'color-mix(in srgb, var(--series-1) 14%, transparent)',
-                  }}
-                >
-                  {i + 1}
-                </span>
-                <span className="text-xs leading-snug text-ink-secondary">
-                  <strong className="text-ink">{title}</strong> — {body}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </div>
       </div>
     </main>
   )

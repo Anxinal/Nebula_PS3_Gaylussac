@@ -21,7 +21,8 @@ export function ColumnChart({
   categoryLabel,
   color = 'var(--series-1)',
   highlightIndex = -1,
-  maxColumns = 30,
+  compact = false,
+  maxColumns = compact ? 14 : 30,
 }: {
   data: ColumnDatum[]
   /** Title of the vertical (value) axis. */
@@ -30,6 +31,8 @@ export function ColumnChart({
   categoryLabel: string
   color?: string
   highlightIndex?: number
+  /** Dashboard-tile size: a narrower canvas, so the same type size reads larger. */
+  compact?: boolean
   maxColumns?: number
 }) {
   const [tip, setTip] = useState<TooltipState | null>(null)
@@ -37,15 +40,16 @@ export function ColumnChart({
   if (cols.length === 0) return null
 
   // Labels sit level when few and short; otherwise they tilt and the bottom margin grows to fit them.
-  const longest = Math.max(...cols.map((d) => Math.min(d.label.length, 16)))
-  const tilt = cols.length > 8 || longest * cols.length > 70
+  const maxChars = compact ? 10 : 16
+  const longest = Math.max(...cols.map((d) => Math.min(d.label.length, maxChars)))
+  const tilt = cols.length > (compact ? 5 : 8) || longest * cols.length > (compact ? 36 : 70)
   const LABEL_H = tilt ? 14 + longest * 4.6 : 20
 
-  const width = 720
+  const width = compact ? 400 : 720
   const PAD_L = 64 // tick values plus the rotated value-axis title
   const PAD_R = 12
   const PAD_T = 12
-  const PLOT_H = 220
+  const PLOT_H = compact ? 130 : 240
   const PAD_B = LABEL_H + 26 // category labels, then the category-axis title
   const height = PAD_T + PLOT_H + PAD_B
 
@@ -77,7 +81,7 @@ export function ColumnChart({
           const h = Math.max(2, Math.abs(y(d.value) - zero))
           const fill = d.color ?? (i === highlightIndex ? 'var(--series-2)' : color)
           const labelY = PAD_T + PLOT_H + 14
-          const text = d.label.length > 16 ? `${d.label.slice(0, 15)}…` : d.label
+          const text = d.label.length > maxChars ? `${d.label.slice(0, maxChars - 1)}…` : d.label
           return (
             <g
               key={d.label + i}
@@ -145,7 +149,8 @@ export function ColumnChart({
       <ChartTooltip tip={tip} />
       {data.length > maxColumns && (
         <p className="mt-2 text-xs text-ink-muted">
-          Showing the first {maxColumns} of {data.length} — the table below has them all.
+          Showing the first {maxColumns} of {data.length}
+          {compact ? ' — open the chart for all of them.' : ' — the table below has them all.'}
         </p>
       )}
     </div>

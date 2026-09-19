@@ -21,6 +21,7 @@ export function LineChart({
   bands = [],
   height = 200,
   color = 'var(--series-1)',
+  compact = false,
 }: {
   points: { t: number; value: number }[]
   xLabel: string
@@ -28,6 +29,8 @@ export function LineChart({
   bands?: Band[]
   height?: number
   color?: string
+  /** Dashboard-tile size: a narrower canvas, so the same type size reads larger. */
+  compact?: boolean
 }) {
   const [tip, setTip] = useState<TooltipState | null>(null)
   const [cursor, setCursor] = useState<number | null>(null)
@@ -37,7 +40,7 @@ export function LineChart({
   const PAD_R = 14
   const PAD_T = 10
   const PAD_B = 46 // tick values plus the x-axis title
-  const width = 900
+  const width = compact ? 460 : 900
 
   const { x, y, path, xt, yt } = useMemo(() => {
     const xs = points.map((p) => p.t)
