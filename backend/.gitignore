@@ -2,7 +2,7 @@
 artifacts/cache/
 
 # Trained models are submission deliverables (Info Kit: "trained model plus
-# predict.py"), so they override the repo-wide *.joblib rule. ~1 MB total.
+# predict.py"), so they override the repo-wide *.joblib rule. ~5 MB total.
 !artifacts/rail_forest.joblib
 !artifacts/shm_expert.joblib
 !artifacts/acv_expert.joblib

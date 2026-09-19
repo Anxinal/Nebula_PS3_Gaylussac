@@ -23,9 +23,9 @@ two-stage architecture:
 | **Door** | segment + classify | IoU-weighted F1 | gap segmentation + RF | **1.0000** |
 | **ACV** | fault localisation | linear rank-decay | per-car RF, leave-one-case-out | **0.9792** |
 | **SHM** | **regression** | max(0, 1 − MAPE) | Miner's-rule anchor + residual RF | **0.9463** |
-| **Rail** | 3-class | macro F1 | per-side binary RF | **0.6634** |
+| **Rail** | 3-class | macro F1 | per-side binary ExtraTrees | **0.7230** |
 
-**Overall Score (÷4) = 0.8972.** All scores are cross-validated on training
+**Overall Score (÷4) = 0.9121.** All scores are cross-validated on training
 data only; see *Caveats* below for how much to trust each.
 
 ## Quick start
@@ -251,7 +251,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 | `rail_cdm/config.py` | Typed config — paths, feature/model/CV parameters, physical constants |
 | `rail_cdm/signal_features.py` | Pure signal processing: speed recovery, Welch PSD, wavelength bands, side contrast |
 | `rail_cdm/dataloader.py` | Raw CSV → pooled feature matrix, parquet-cached; per-file and per-side frames |
-| `rail_cdm/model.py` | `RandomForestClassifier` + SHAP `TreeExplainer`, side-probability combination, persistence |
+| `rail_cdm/model.py` | `ExtraTreesClassifier` + SHAP `TreeExplainer`, side-probability combination, persistence |
 | `rail_cdm/trainer.py` | Repeated grouped CV, threshold tuning, final fit |
 | `rail_cdm/evaluator.py` | Macro F1, per-class breakdown, speed-confound diagnostics |
 | `rail_cdm/cli.py` | `train` / `evaluate` / `explain` / `predict` |
@@ -306,7 +306,42 @@ the same model **38 fault examples** of a single side-agnostic signature.
 | Strategy | Macro F1 (OOF) | Side I F1 |
 |---|---|---|
 | `multiclass` (3-class, 272 rows) | 0.435 ± 0.021 | **0.00** |
-| `per_side` (binary, 544 rows) | **0.66** | 0.35 |
+| `per_side` (binary, 544 rows) | **0.72** | 0.35 |
+
+## Why ExtraTrees rather than a RandomForest
+
+Detection, not side attribution, is what limits this subsystem: of the errors a
+RandomForest made, 32 were detection failures (24 false alarms, 8 misses) and
+only 3 were the wrong side. So the forest itself was the thing worth changing.
+
+The diagnosis is **variance, not bias**. A RandomForest reaches a *perfect*
+training fit here (train AP = 1.000) and loses 0.36 average precision
+out-of-fold. Growing the forest cannot fix that — `n_estimators` averages away
+ensemble variance but adds no capacity, and 100 → 6000 trees moves AP by
++0.017. With 721 correlated spectral features and 38 positive rows, optimised
+split points are free to chase noise; randomised thresholds are not.
+
+| Detector (per-side, OOF, 6 repeats) | Avg precision | Macro F1 |
+|---|---|---|
+| RandomForest, `class_weight="balanced_subsample"` | 0.647 | 0.666 |
+| ExtraTrees, same weighting | 0.724 | 0.703 |
+| **ExtraTrees, `max_features=0.05`, weight 1:3** | **0.780** | **0.723** |
+
+Two things carry that gain. ExtraTrees over RandomForest is most of it. The
+rest is the class weight: `"balanced"` implies a **7.2x** minority weight here,
+which buys recall at a precision cost macro F1 does not forgive — the OOF
+optimum is a much milder 2-4x. Because ExtraTrees does not bootstrap,
+`class_weight={0: 1, 1: 3}` is exactly equivalent to duplicating every fault
+row three times, so oversampling is expressed as a weight rather than as
+copied rows.
+
+Synthetic minority augmentation was tried and **rejected**: jittered copies
+(AP 0.772) and SMOTE-style interpolation (AP 0.765) both scored *below* plain
+duplication (AP 0.790). Interpolating in a 721-dimensional feature space
+invents points the physics does not produce.
+
+Net effect on the confusion matrix: false alarms fall **24 -> 8** out of 234
+normal files, at a cost of 2 missed faults (30 -> 28 of 38 detected).
 
 ## Validation design
 
