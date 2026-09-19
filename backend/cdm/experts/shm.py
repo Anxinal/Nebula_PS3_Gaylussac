@@ -16,6 +16,17 @@ hands the model the term the target is actually built from; the regressor then
 only has to identify the effective ``m`` and ``1/C`` (which differ between the
 two lines and the AW0/AW4 load conditions in this dataset).
 
+One caveat on interpretation. Textbook Miner's rule would make ``log D`` an
+affine function of ``log S_m`` with slope exactly 1 for the true exponent. It
+does not: the fitted slope is 2.30 at m=5, and ``slope * m`` comes out at
+roughly 11 for every exponent tried (3 -> 10.9, 5 -> 11.5, 8 -> 10.6). The
+reference values were therefore not produced by a single-slope power-law S-N
+curve - a bilinear or knee-point curve is the likely explanation, and an
+endurance-limit cutoff does not recover slope 1 either. So ``anchor_exponent``
+is a **fitted basis exponent that happens to linearise the target**, not the
+material's S-N exponent; the affine calibration absorbs the difference and
+fits at r = 0.997 regardless.
+
 Measured on this data, ``log(damage)`` tracks ``log(S_5)`` at r = 0.997, and a
 one-feature linear fit on it scores 0.940 where a plain forest over all
 features scores only 0.907 - the forest adds variance to what is very nearly
@@ -180,9 +191,9 @@ class SHMExpert(SubsystemExpert):
 
         splitter = KFold(n_splits=8, shuffle=True, random_state=0)
 
-        # Pick the S-N exponent by fit quality on log damage. Miner's rule
-        # makes the relationship affine for the correct m, so the best linear
-        # correlation identifies it.
+        # Pick the exponent that best linearises log damage. Note this is a
+        # basis choice, not a material property - see the module docstring on
+        # why the fitted slope is not 1.
         self.anchor_exponent = max(
             SN_EXPONENTS,
             key=lambda m: abs(np.corrcoef(frame[f"log_S{m:g}"], log_y)[0, 1]),
@@ -216,8 +227,11 @@ class SHMExpert(SubsystemExpert):
         self.cv_score = self.baselines["anchored_forest"]
 
         if verbose:
-            print(f"  SHM anchor exponent m = {self.anchor_exponent:g} "
-                  f"(r = {np.corrcoef(anchor_col, log_y)[0, 1]:.4f} against log damage)")
+            fitted_slope = np.polyfit(anchor_col, log_y, 1)[0]
+            print(f"  SHM anchor basis exponent m = {self.anchor_exponent:g} "
+                  f"(r = {np.corrcoef(anchor_col, log_y)[0, 1]:.4f}, "
+                  f"slope = {fitted_slope:.2f}; slope != 1 means the reference "
+                  f"damage is not single-slope Miner)")
             for label, value in self.baselines.items():
                 mark = "  <- used" if label == "anchored_forest" else ""
                 print(f"  SHM {label:16s}: score {value:.4f}{mark}")

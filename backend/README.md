@@ -82,7 +82,10 @@ which keeps a sixth of the training data in play instead of dropping it.
 **SHM — `cdm/experts/shm.py`.** A **regression** task. Miner's rule gives
 `D = (1/C) · Σ nᵢ·σᵢ^m`, so a real rainflow counter (ASTM E1049) extracts
 cycles and computes the stress moment `S_m` for several exponents. On this
-data `log(damage)` tracks `log(S₅)` at **r = 0.9971**. That matters: a plain
+data `log(damage)` tracks `log(S₅)` at **r = 0.9971** — though the fitted slope
+is 2.30, not the 1.0 textbook Miner's rule requires (`slope × m ≈ 11` for every
+exponent tried), so the reference values are *not* from a single-slope S-N
+curve and `m=5` is a fitted basis exponent, not a material property. That matters: a plain
 forest over all features scores 0.907, *worse* than a one-feature linear fit
 on the physics at 0.940, because a forest adds variance to what is nearly an
 exact power law. The expert therefore anchors on the linear Miner's term and
@@ -101,9 +104,10 @@ deep-dive below is unchanged.
   move it a lot. The physics-only ranking (0.8958) is the safer fallback and
   is retained in the code.
 - **SHM assumes a single effective S-N exponent** across two lines and two
-  load conditions. The residual forest absorbs some of that, but a held-out
-  file from an unrepresented condition could sit outside the fitted range —
-  and forests cannot extrapolate.
+  load conditions. Splitting the calibration per latent regime was tested and
+  is *worse* (0.944 vs 0.946) — 64 files do not survive being halved. A
+  held-out file from an unrepresented condition could still sit outside the
+  fitted range, and forests cannot extrapolate.
 - **Rail is the weakest and best understood** — see below.
 
 ---
