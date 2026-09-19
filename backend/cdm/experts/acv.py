@@ -273,6 +273,52 @@ class ACVExpert(SubsystemExpert):
             explanation=explanation,
         )
 
+    def web_payload(self, paths: list[Path]) -> dict:
+        """Response body for ``POST /predict/acv`` (see frontend/README.md)."""
+        files = []
+        for path in [Path(p) for p in paths]:
+            ranked = self._rank_case(path)
+            verdict = self.predict_file(path)
+
+            # The frontend shows a per-car "evidence" line. Say why each car sits
+            # where it does in the ranking, in the units an engineer thinks in.
+            evidence = {}
+            for row in ranked.itertuples():
+                evidence[row.car] = (
+                    f"{row.dev_indoor_mean:+.2f} K against the fleet median; "
+                    f"{row.frac_above_setpoint * 100:.0f}% of the run above its cooling setpoint "
+                    f"({row.dev_shortfall_mean:+.2f} K vs the fleet)"
+                )
+
+            frame = pd.read_excel(path)
+            mapping = car_columns(frame)
+            step = max(1, len(frame) // 400)
+            series = []
+            for car in sorted(mapping):
+                indoor = _series(frame, mapping[car], "indoor")
+                if indoor is None:
+                    continue
+                sampled = indoor.iloc[::step]
+                series.append({
+                    "car": car,
+                    "points": [
+                        {"t": float(i * step), "value": float(v)}
+                        for i, v in enumerate(sampled)
+                        if pd.notna(v)
+                    ],
+                })
+
+            files.append({
+                "file_id": path.name,
+                "ranked_cars": list(ranked.car),
+                "scores": {row.car: float(row.score) for row in ranked.itertuples()},
+                "evidence": evidence,
+                "series": series,
+                "sample_count": int(len(frame)),
+                "explanation": verdict.explanation.to_dict() if verdict.explanation else None,
+            })
+        return {"files": files}
+
     def submission_rows(self, paths: list[Path]) -> pd.DataFrame:
         rows = []
         for path in paths:

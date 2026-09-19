@@ -295,6 +295,45 @@ class SHMExpert(SubsystemExpert):
             explanation=explanation,
         )
 
+    def web_payload(self, paths: list[Path]) -> dict:
+        """Response body for ``POST /predict/shm`` (see frontend/README.md)."""
+        files = []
+        for path in [Path(p) for p in paths]:
+            verdict = self.predict_file(path)
+            series = pd.read_csv(path, header=None).to_numpy(dtype=np.float64).ravel()
+            cycles = rainflow(series)
+            amplitude = cycles[:, 0] / 2.0 if cycles.size else np.zeros(0)
+            counts = cycles[:, 2] if cycles.size else np.zeros(0)
+
+            # Damage contribution per amplitude bin. Miner's rule weights a
+            # cycle by amplitude^m, so the tallest bar is rarely the most
+            # frequent bin - it is the one where a few large cycles dominate.
+            bins = []
+            if amplitude.size:
+                edges = np.linspace(0.0, float(amplitude.max()), 21)
+                index = np.clip(np.digitize(amplitude, edges) - 1, 0, len(edges) - 2)
+                weight = counts * np.power(amplitude, self.anchor_exponent)
+                total = float(weight.sum()) or 1.0
+                for b in range(len(edges) - 1):
+                    mask = index == b
+                    if not mask.any():
+                        continue
+                    bins.append({
+                        "rangeMid": float((edges[b] + edges[b + 1])),  # range = 2 x amplitude
+                        "cycles": float(counts[mask].sum()),
+                        "damage": float(weight[mask].sum() / total),
+                    })
+
+            files.append({
+                "file_id": path.name,
+                "prediction": float(verdict.detail["damage"]),
+                "cycles": float(counts.sum()),
+                "max_range": float(cycles[:, 0].max()) if cycles.size else 0.0,
+                "bins": bins,
+                "explanation": verdict.explanation.to_dict() if verdict.explanation else None,
+            })
+        return {"files": files}
+
     def submission_rows(self, paths: list[Path]) -> pd.DataFrame:
         values = self._predict_paths(list(paths))
         return pd.DataFrame({"file_id": [p.name for p in paths], "prediction": values})

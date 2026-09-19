@@ -23,6 +23,15 @@ from ..base import SubsystemExpert, Verdict
 from ..explain import explain_prediction
 
 
+def _count_rows(path: Path) -> int:
+    """Data rows in a CSV, excluding the header."""
+    try:
+        with Path(path).open("rb") as handle:
+            return max(sum(1 for _ in handle) - 1, 0)
+    except OSError:
+        return 0
+
+
 class RailExpert(SubsystemExpert):
     name = "rail"
     submission_filename = "rail_predictions.csv"
@@ -98,6 +107,38 @@ class RailExpert(SubsystemExpert):
             confidence=float(result.confidence),
             explanation=explanation,
         )
+
+    def web_payload(self, paths: list[Path]) -> dict:
+        """Response body for ``POST /predict/rail`` (see frontend/README.md)."""
+        paths = list(paths)
+        predictions, side_frame, X = self._predict_frame(paths)
+        by_file = {p.name: p for p in paths}
+        speeds = dict(zip(side_frame.file_id, side_frame.speed_ms))
+
+        files = []
+        for result in predictions.itertuples():
+            deciding = "I" if result.p_side_I >= result.p_side_II else "II"
+            mask = ((side_frame["file_id"] == result.file_id)
+                    & (side_frame["side"] == deciding)).to_numpy()
+            row = int(np.flatnonzero(mask)[0])
+            explanation = explain_prediction(
+                self.model.forest,
+                X.iloc[row].to_numpy(dtype=float),
+                list(self.model.feature_names),
+                units_note=f"P(corrugated) for the Side {deciding} rail",
+            )
+            source = by_file.get(result.file_id)
+            files.append({
+                "file_id": result.file_id,
+                "prediction": result.prediction,
+                "confidence": float(result.confidence),
+                "side_i": float(result.p_side_I),
+                "side_ii": float(result.p_side_II),
+                "n_rows": _count_rows(source) if source else 0,
+                "speed_kmh": float(speeds.get(result.file_id, 0.0)) * 3.6,
+                "explanation": explanation.to_dict(),
+            })
+        return {"files": files}
 
     def submission_rows(self, paths: list[Path]) -> pd.DataFrame:
         predictions, _, _ = self._predict_frame(list(paths))

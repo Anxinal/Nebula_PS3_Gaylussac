@@ -94,6 +94,62 @@ puts the forest on the **residual** — 0.946.
 **Rail — `cdm/experts/rail.py`.** Adapter over the `rail_cdm` package; the
 deep-dive below is unchanged.
 
+## HTTP API for the frontend
+
+```bash
+.venv/bin/python serve.py                      # http://127.0.0.1:8000, /docs for the schema
+.venv/bin/python serve.py --origins https://anxinal.github.io
+```
+
+Implements the contract in `frontend/README.md`, so the app switches from its
+in-browser baselines to the trained models as soon as this is reachable. Port
+8000 matches the frontend's default `VITE_API_BASE_URL`.
+
+```
+GET  /health              -> {"status":"ok","models":{"rail":true,"shm":true,"acv":true,"door":true}}
+POST /predict/{subsystem} multipart/form-data, repeated field "files" (.csv / .xlsx)
+```
+
+**Prediction and explanation are separate fields**, so the UI can render a
+result without parsing prose and show the reasoning beside it:
+
+```jsonc
+// POST /predict/rail
+{ "files": [ {
+    "file_id": "Test13.csv",
+    "prediction": "Side I",            // the answer
+    "confidence": 0.391,
+    "side_i": 0.391, "side_ii": 0.194, // per-rail scores behind the call
+    "n_rows": 10000, "speed_kmh": 46.3,
+    "explanation": {                   // the reasoning, in its own field
+      "plain_summary": "because Side I vs Side II difference in vibration variability is too low",
+      "reasons": [ "...", "..." ],
+      "top_nodes": [ { "plain": "...", "rule": "contrast__vib__std__max <= -0.01234",
+                       "contribution": -0.0723, "n_trees": 132 } ],
+      "top_features": [ { "feature": "...", "feature_label": "...", "shap": 0.0197 } ]
+    } } ] }
+```
+
+Each subsystem also returns what its chart needs — door a downsampled current
+`trace` plus per-segment `operation`/`margin`/offsets, SHM rainflow `bins`, ACV
+per-car `series` and a plain-English `evidence` line per car. All of it is
+optional for the client.
+
+`web_payload()` on each expert builds these, so subsystem knowledge stays in the
+expert and `cdm/server.py` stays thin.
+
+**Uploading a file to the wrong endpoint is refused, not guessed at.** The
+stage-1 router checks every upload and names where it belongs:
+
+```
+POST /predict/door  with a rail file
+400: 'Test1.csv' looks like a rail file, not door (axle-box vibration channels
+     with a rotating-speed column). Upload it under /predict/rail.
+```
+
+Models load once at startup, not per request. Uploads are staged in a temp
+directory that is removed however the request ends, capped at 256 MB.
+
 ## Explainability
 
 Every expert is a tree ensemble, so each prediction reports **why** — in plain

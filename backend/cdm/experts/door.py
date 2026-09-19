@@ -341,6 +341,73 @@ class DoorExpert(SubsystemExpert):
             explanation=explanation,
         )
 
+    def web_payload(self, paths: list[Path]) -> dict:
+        """Response body for ``POST /predict/door`` (see frontend/README.md).
+
+        Door's stream is scored as a whole, so multiple uploads are concatenated
+        into one segment list, which is what the submission format expects too.
+        """
+        segments_out: list[dict] = []
+        trace: list[dict] = []
+        total_rows = 0
+        duration = 0.0
+        file_explanation = None
+
+        for path in paths:
+            stream = load_stream(path)
+            segments, features = self._predict_segments(path, return_features=True)
+            origin = stream["_t"].iloc[0]
+            total_rows += len(stream)
+            duration += float((stream["_t"].iloc[-1] - origin).total_seconds())
+
+            bounds = segment_stream(stream)
+            for i, ((a, b), row) in enumerate(zip(bounds, segments.itertuples())):
+                block = stream.iloc[a:b]
+                position = block[POSITION].to_numpy(float)
+                # Leaf position rising over the cycle means the door opened:
+                # verified against all 110 labelled training segments.
+                operation = "Open" if position[-1] > position[0] else "Close"
+                explanation = explain_prediction(
+                    self.model,
+                    features.iloc[i][self.feature_names].to_numpy(dtype=float),
+                    list(self.feature_names),
+                    include_shap=False,  # per-segment: node walk only, keeps it fast
+                )
+                segments_out.append({
+                    "start_time": row.start_time,
+                    "end_time": row.end_time,
+                    "prediction": row.prediction,
+                    "operation": operation,
+                    "mean_current": float(features.iloc[i]["cur_mean"]),
+                    # Signed distance from the decision threshold; > 0 = abnormal.
+                    "margin": float(row.confidence - self.threshold),
+                    "n_rows": int(b - a),
+                    "start_offset_sec": float((block["_t"].iloc[0] - origin).total_seconds()),
+                    "end_offset_sec": float((block["_t"].iloc[-1] - origin).total_seconds()),
+                    "confidence": float(row.confidence),
+                    "explanation": explanation.to_dict(4),
+                })
+
+            # Downsampled current trace for the overview chart.
+            step = max(1, len(stream) // 1500)
+            sampled = stream.iloc[::step]
+            trace += [
+                {"t": float((t - origin).total_seconds()), "current": float(c)}
+                for t, c in zip(sampled["_t"], sampled[CURRENT])
+            ]
+            if file_explanation is None:
+                file_explanation = self.predict_file(path).explanation
+
+        n_abnormal = sum(1 for s in segments_out if s["prediction"] == ABNORMAL)
+        return {
+            "segments": segments_out,
+            "trace": trace,
+            "total_rows": total_rows,
+            "duration_sec": duration,
+            "summary": f"{len(segments_out)} door cycles found, {n_abnormal} showing abnormal resistance",
+            "explanation": file_explanation.to_dict() if file_explanation else None,
+        }
+
     def submission_rows(self, paths: list[Path]) -> pd.DataFrame:
         # Door's submission is per predicted segment across the stream, with
         # no file_id column (Info Kit §3).

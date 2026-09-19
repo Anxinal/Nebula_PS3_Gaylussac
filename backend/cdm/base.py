@@ -64,6 +64,15 @@ class SubsystemExpert(abc.ABC):
     def submission_rows(self, paths: list[Path]) -> pd.DataFrame:
         """Rows in this subsystem's required *_predictions.csv schema."""
 
+    def web_payload(self, paths: list[Path]) -> dict:
+        """JSON body for ``POST /predict/<subsystem>``.
+
+        Shaped to the contract the frontend documents (frontend/README.md), with
+        the prediction and its explanation in separate fields. Kept concrete
+        rather than abstract so a new expert is usable before it has a UI.
+        """
+        raise NotImplementedError(f"{self.name} has no web payload yet")
+
     @abc.abstractmethod
     def save(self, path: str | Path) -> Path: ...
 
