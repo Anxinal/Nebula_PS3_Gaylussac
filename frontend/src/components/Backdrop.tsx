@@ -960,9 +960,6 @@ export function Backdrop({ atStation = false, split = false }: { atStation?: boo
                   />
                 )),
               )}
-              {/* Coupler */}
-              <rect x="-0.24" y="-0.88" width="0.48" height="0.4" rx="0.04" strokeWidth="0.025" style={{ fill: MASK, stroke: TRIM }} />
-              <line x1="0" y1="-0.68" x2="0.14" y2="-0.5" strokeWidth="0.04" strokeLinecap="round" style={{ stroke: TRIM }} />
             </g>
           </g>
         </g>

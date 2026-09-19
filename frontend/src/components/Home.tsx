@@ -29,7 +29,7 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
   const out = leaving ? 'panel-out pointer-events-none' : ''
 
   return (
-    <main className="lg:grid lg:grid-cols-[3fr_2fr]">
+    <main className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[3fr_2fr]">
       {/* Panel background, pinned to the right two fifths so it runs the full height behind the header too */}
       <div
         aria-hidden
@@ -42,7 +42,7 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
       />
 
       {/* Left: the headline, over the sky above the train */}
-      <div className="px-4 pt-14 sm:pt-20 lg:px-10 lg:pt-16">
+      <div className="px-4 pt-10 sm:pt-14 lg:px-10 lg:pt-[6vh]">
         <h1 className="display headline-glow text-center text-4xl uppercase leading-[1.05] text-ink sm:text-5xl xl:text-6xl">
           <span className="display-outline block">Find the fault before</span>
           <span className="block font-black">the train finds you</span>
@@ -50,14 +50,14 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
       </div>
 
       <div
-        className={`mx-auto flex w-full max-w-xl flex-col justify-center px-4 pb-16 pt-10 lg:min-h-[calc(100vh-4rem)] lg:px-8 lg:py-12 ${out}`}
+        className={`mx-auto flex w-full max-w-xl flex-col justify-center px-4 pb-12 pt-8 lg:h-full lg:overflow-y-auto lg:px-8 lg:py-6 ${out}`}
       >
         <section>
-          <h2 className="text-center text-sm font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
+          <h2 className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
             Pick where to start
           </h2>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="mt-3 grid gap-2.5">
             {SUBSYSTEM_ORDER.map((id) => {
               const meta = SUBSYSTEMS[id]
               const Icon = SUBSYSTEM_ICON[id]
@@ -67,11 +67,11 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
                   type="button"
                   onClick={() => pick(id)}
                   style={{ background: 'color-mix(in srgb, var(--surface-1) 84%, transparent)' }}
-                  className="card group flex items-start gap-3.5 px-4 py-3.5 text-left transition-all
+                  className="card group flex items-start gap-3 px-3.5 py-2.5 text-left transition-all
                              hover:-translate-y-0.5 hover:shadow-lg"
                 >
                   <span
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[1.4rem]"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[1.15rem]"
                     style={{
                       color: 'var(--series-1)',
                       background: 'color-mix(in srgb, var(--series-1) 12%, transparent)',
@@ -90,7 +90,7 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
                         →
                       </span>
                     </span>
-                    <span className="mt-1 block text-sm leading-snug text-ink-secondary">{meta.tagline}</span>
+                    <span className="mt-0.5 block text-xs leading-snug text-ink-secondary">{meta.tagline}</span>
                   </span>
                 </button>
               )
@@ -98,19 +98,19 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
           </div>
         </section>
 
-        <section className="mt-10">
-          <h2 className="text-center text-sm font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
+        <section className="mt-6">
+          <h2 className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
             How it works
           </h2>
-          <ol className="mt-4 space-y-3">
+          <ol className="mt-3 space-y-2">
             {[
-              ['Choose', 'Pick the subsystem you have data for.'],
-              ['Drop', 'Drag in a file, or a whole folder at once.'],
-              ['Read & download', 'See what it found, then take the CSV.'],
+              ['Choose', 'Pick the subsystem you have data for'],
+              ['Drop', 'Drag in a file, or a whole folder at once'],
+              ['Read & download', 'See what it found, then take the CSV'],
             ].map(([title, body], i) => (
               <li key={title} className="flex items-center gap-3.5">
                 <span
-                  className="display flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                  className="display flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
                   style={{
                     color: 'var(--series-1)',
                     background: 'color-mix(in srgb, var(--series-1) 14%, transparent)',
@@ -118,8 +118,8 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
                 >
                   {i + 1}
                 </span>
-                <span className="text-sm leading-snug text-ink-secondary">
-                  <strong className="text-ink">{title}.</strong> {body}
+                <span className="text-xs leading-snug text-ink-secondary">
+                  <strong className="text-ink">{title}</strong> — {body}
                 </span>
               </li>
             ))}

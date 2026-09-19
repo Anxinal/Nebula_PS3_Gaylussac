@@ -100,7 +100,8 @@ export default function App() {
   const completed = useMemo(() => new Set(runs.keys()), [runs])
 
   return (
-    <div className="min-h-full">
+    // The home page fits the window on wide screens (no page scroll); the console grows as it needs.
+    <div className={view === 'home' ? 'flex h-full flex-col lg:overflow-hidden' : 'min-h-full'}>
       {/* The train waits at the station while you pick and upload, then pulls away with your files. */}
       <Backdrop atStation={view === 'console' && files.length === 0} split={view === 'home'} />
       {/* On the console the scene softens behind a blur, so the panels read over it */}
