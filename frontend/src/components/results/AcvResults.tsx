@@ -1,4 +1,4 @@
-import { HBarChart } from '../charts/HBarChart'
+import { ColumnChart } from '../charts/ColumnChart'
 import { TrainDiagram } from '../charts/TrainDiagram'
 import { SectionHead, StatTile } from '../StatTile'
 import { fmt } from '../charts/chartUtils'
@@ -54,13 +54,14 @@ export function AcvResults({ result }: { result: AcvResult }) {
                 title="Temperature vs the train"
                 hint="At each timestamp the median cabin temperature across all cars is taken as the healthy reference — which cancels out ambient swings and train-wide control cycling. Bars right of zero run hotter than that reference; a leaking car cools less than its neighbours and sits above the rest."
               />
-              <HBarChart
+              <ColumnChart
                 data={file.cars.map((c) => ({
                   label: `Car ${c.car}`,
                   value: c.score,
                   detail: `Rank ${c.rank} of ${file.cars.length}`,
                 }))}
                 valueLabel="Deviation (°)"
+                categoryLabel="Car, most likely leak first"
                 highlightIndex={0}
               />
             </section>

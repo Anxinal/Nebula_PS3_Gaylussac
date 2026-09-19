@@ -19,7 +19,7 @@ import type { RailFileResult, RailLabel } from '../../types'
  * from the uploaded batch itself: files whose side imbalance is a robust outlier
  * (median + k x MAD, on the batch) are called corrugated on the louder side, and
  * everything else Normal. That suits the test folder, where corrugation is the
- * documented minority class. `sensitivity` is k, and is adjustable in the UI.
+ * documented minority class. `sensitivity` is k, fixed at 3: well out in the tail.
  *
  * This is a transparent rule baseline, not a trained model.
  */

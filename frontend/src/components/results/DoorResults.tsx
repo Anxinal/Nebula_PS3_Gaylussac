@@ -69,10 +69,10 @@ export function DoorResults({ result }: { result: DoorResult }) {
           />
           <LineChart
             points={result.trace.map((p) => ({ t: p.t, value: p.current }))}
-            xLabel="seconds from start"
-            yLabel="mA"
+            xLabel="Time from start of stream (s)"
+            yLabel="Motor current (mA)"
             bands={bands}
-            height={210}
+            height={240}
           />
         </section>
       )}

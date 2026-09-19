@@ -1,4 +1,4 @@
-import { HBarChart } from '../charts/HBarChart'
+import { ColumnChart } from '../charts/ColumnChart'
 import { SectionHead, StatTile } from '../StatTile'
 import { fmt } from '../charts/chartUtils'
 import type { RailLabel, RailResult } from '../../types'
@@ -81,7 +81,7 @@ export function RailResults({ result }: { result: RailResult }) {
           title="Side imbalance"
           hint="Side I vibration energy minus Side II, per recording. Comparing the two sides within the same file cancels out speed and track roughness, since both sides share them. Files far from zero have one rail much louder than the other — that is what corrugation looks like from the axle boxes."
         />
-        <HBarChart
+        <ColumnChart
           data={[...result.files]
             .sort((a, b) => b.sideI - b.sideII - (a.sideI - a.sideII))
             .map((f) => ({
@@ -91,6 +91,7 @@ export function RailResults({ result }: { result: RailResult }) {
               detail: `${f.prediction} · Side I ${fmt(f.sideI, 3)} vs Side II ${fmt(f.sideII, 3)}`,
             }))}
           valueLabel="Side I − Side II (m/s²)"
+          categoryLabel="Recording"
         />
       </section>
 

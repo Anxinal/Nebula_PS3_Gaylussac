@@ -33,10 +33,10 @@ export function LineChart({
   const [cursor, setCursor] = useState<number | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
 
-  const PAD_L = 52
+  const PAD_L = 68 // tick values plus the rotated y-axis title
   const PAD_R = 14
   const PAD_T = 10
-  const PAD_B = 28
+  const PAD_B = 46 // tick values plus the x-axis title
   const width = 900
 
   const { x, y, path, xt, yt } = useMemo(() => {
@@ -132,10 +132,26 @@ export function LineChart({
 
         <line x1={PAD_L} x2={width - PAD_R} y1={height - PAD_B} y2={height - PAD_B} stroke={CHART_INK.axis} strokeWidth={1} />
         {xt.map((t) => (
-          <text key={`x${t}`} x={x(t)} y={height - 8} textAnchor="middle" className="tnum" fontSize={11} fill={CHART_INK.muted}>
+          <text key={`x${t}`} x={x(t)} y={height - PAD_B + 16} textAnchor="middle" className="tnum" fontSize={11} fill={CHART_INK.muted}>
             {fmt(t)}
           </text>
         ))}
+
+        {/* Axis titles */}
+        <text
+          x={16}
+          y={PAD_T + (height - PAD_B - PAD_T) / 2}
+          textAnchor="middle"
+          transform={`rotate(-90 16 ${PAD_T + (height - PAD_B - PAD_T) / 2})`}
+          fontSize={12}
+          fontWeight={600}
+          fill={CHART_INK.secondary}
+        >
+          {yLabel}
+        </text>
+        <text x={PAD_L + (width - PAD_L - PAD_R) / 2} y={height - 6} textAnchor="middle" fontSize={12} fontWeight={600} fill={CHART_INK.secondary}>
+          {xLabel}
+        </text>
       </svg>
       <ChartTooltip tip={tip} />
     </div>

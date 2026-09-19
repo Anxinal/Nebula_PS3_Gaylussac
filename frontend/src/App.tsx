@@ -21,11 +21,14 @@ import type { RunRecord, SubsystemId } from './types'
 
 const CAL_KEY = 'nebula-shm-calibration'
 
+type View = 'home' | 'console' | 'results'
+const viewFromHash = (hash: string): View =>
+  hash.startsWith('#/results') ? 'results' : hash.startsWith('#/app') ? 'console' : 'home'
+
 export default function App() {
-  // Two views, addressable by hash so the back button and a shared link both work.
-  const [view, setView] = useState<'home' | 'console'>(() =>
-    typeof location !== 'undefined' && location.hash.startsWith('#/app') ? 'console' : 'home',
-  )
+  // Three views, addressable by hash so the back button and a shared link both work:
+  // the landing page, the upload console, and the results of the last analysis.
+  const [view, setView] = useState<View>(() => (typeof location !== 'undefined' ? viewFromHash(location.hash) : 'home'))
   const [subsystem, setSubsystem] = useState<SubsystemId | null>(null)
   const [files, setFiles] = useState<File[]>([])
   const [runs, setRuns] = useState<Map<SubsystemId, RunRecord>>(new Map())
@@ -35,7 +38,6 @@ export default function App() {
   // A backend address saved earlier is still honoured; there is no longer a control to change it.
   const [apiBase] = useState(getApiBase)
   const [health, setHealth] = useState<BackendHealth>({ reachable: false, models: {}, detail: 'Using the built-in baselines.' })
-  const [railSensitivity, setRailSensitivity] = useState(3)
   const [calibration, setCalibration] = useState<ShmCalibration>(loadCalibration)
 
   const recheck = useCallback(async () => {
@@ -47,7 +49,7 @@ export default function App() {
   }, [recheck])
 
   useEffect(() => {
-    const onHash = () => setView(location.hash.startsWith('#/app') ? 'console' : 'home')
+    const onHash = () => setView(viewFromHash(location.hash))
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
@@ -79,7 +81,6 @@ export default function App() {
       const record = await runSubsystem(subsystem, files, {
         apiBase,
         useBackend: backendReady,
-        railSensitivity,
         shmCalibration: calibration,
         onProgress: setProgress,
         onCalibrated: (c) => {
@@ -92,6 +93,9 @@ export default function App() {
         },
       })
       setRuns((prev) => new Map(prev).set(subsystem, record))
+      // Straight on to the results page once the analysis is in.
+      location.hash = '#/results'
+      window.scrollTo({ top: 0 })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -110,7 +114,7 @@ export default function App() {
       <div
         aria-hidden
         className={`pointer-events-none fixed inset-0 -z-[5] transition-opacity duration-700 ${
-          view === 'console' ? 'opacity-100' : 'opacity-0'
+          view !== 'home' ? 'opacity-100' : 'opacity-0'
         }`}
         style={{ backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
       />
@@ -158,33 +162,6 @@ export default function App() {
           />
         </section>
 
-        {subsystem && activeRun && (
-          <section className="space-y-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="display text-2xl font-bold tracking-tight text-ink">{SUBSYSTEMS[subsystem].name} result</h2>
-              <p className="text-xs text-ink-muted">
-                {activeRun.engine === 'backend' ? 'Trained model' : 'Baseline'} · {activeRun.engineLabel}
-              </p>
-            </div>
-
-            {activeRun.warnings.length > 0 && (
-              <ul className="card space-y-1.5 px-4 py-3 text-xs text-ink-secondary">
-                {activeRun.warnings.map((w, i) => (
-                  <li key={i}>· {w}</li>
-                ))}
-              </ul>
-            )}
-
-            {activeRun.result.kind === 'door' && <DoorResults result={activeRun.result} />}
-            {activeRun.result.kind === 'acv' && <AcvResults result={activeRun.result} />}
-            {activeRun.result.kind === 'rail' && <RailResults result={activeRun.result} />}
-            {activeRun.result.kind === 'shm' && (
-              <ShmResults result={activeRun.result} calibrated={activeRun.engine === 'backend' || calibration.fittedAt > 0} />
-            )}
-            {activeRun.engine === 'backend' && <WhyPanel result={activeRun.result} />}
-          </section>
-        )}
-
         {meta && (
           <section className="card p-5">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -205,54 +182,37 @@ export default function App() {
 
             <Dropzone meta={meta} files={files} onFiles={setFiles} />
 
-            {subsystem === 'rail' && (
-              <div className="mt-4 rounded-lg border border-hairline p-3">
-                <label htmlFor="rail-sens" className="flex items-center gap-1.5 text-xs font-medium text-ink">
-                  Sensitivity
-                  <InfoHint label="About sensitivity">
-                    How far a recording's side imbalance must stand out from the rest of the batch before it is
-                    called corrugated, measured in robust standard deviations (MAD). Lower catches more faults and
-                    risks false alarms; higher only flags the clearest cases. Corrugation is the minority class, so
-                    the default sits well out in the tail.
-                  </InfoHint>
-                </label>
-                <div className="mt-2 flex items-center gap-3">
-                  <input
-                    id="rail-sens"
-                    type="range"
-                    min={1}
-                    max={5}
-                    step={0.25}
-                    value={railSensitivity}
-                    onChange={(e) => setRailSensitivity(Number(e.target.value))}
-                    className="w-56"
-                  />
-                  <span className="tnum text-xs text-ink-secondary">{railSensitivity.toFixed(2)} × MAD</span>
-                </div>
-              </div>
-            )}
-
+            {/* Damage figures come only from the trained model; there is no in-browser estimate for SHM. */}
             {subsystem === 'shm' && (
               <p className="mt-4 rounded-lg border border-hairline px-3 py-2 text-xs text-ink-secondary">
-                {calibration.fittedAt > 0 ? (
+                {backendReady ? (
                   <>
-                    <strong className="text-ink">Calibrated</strong> · m = {calibration.m.toFixed(2)} from{' '}
-                    {calibration.fileCount} labelled file(s), training MAPE {(calibration.mape * 100).toFixed(1)}%.
-                    Include a <code>Train_Labels.csv</code> to refit.
+                    <strong className="text-ink">Scored by the trained model</strong> · every damage figure and chart
+                    comes from the backend.
                   </>
                 ) : (
                   <>
-                    <strong className="text-ink">Not calibrated</strong> · drop the Train folder with{' '}
-                    <code>Train_Labels.csv</code> once to fit the S-N curve.
+                    <strong className="text-ink">Needs the model backend</strong> · damage is only computed by the
+                    trained model. Start it with <code>python serve.py</code> in <code>backend/</code>, then Retry above.
                   </>
                 )}
               </p>
             )}
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button type="button" className="btn-primary" disabled={files.length === 0 || progress !== null} onClick={onRun}>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={files.length === 0 || progress !== null || (subsystem === 'shm' && !backendReady)}
+                onClick={onRun}
+              >
                 {progress ? 'Analysing…' : 'Analyse'}
               </button>
+              {activeRun && (
+                <button type="button" className="btn-ghost" onClick={() => (location.hash = '#/results')}>
+                  View result →
+                </button>
+              )}
               {activeRun && (
                 <button
                   type="button"
@@ -308,6 +268,60 @@ export default function App() {
           }}
         />
       </main>
+      )}
+
+      {view === 'results' && (
+        <main className="fade-in mx-auto max-w-6xl space-y-6 px-4 pb-6 pt-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button type="button" className="btn-ghost !px-3 !py-1.5 text-sm" onClick={() => (location.hash = '#/app')}>
+              <span aria-hidden>←</span> Back to analyse
+            </button>
+            {activeRun && (
+              <button
+                type="button"
+                className="btn-ghost !px-3 !py-1.5 text-sm"
+                onClick={() => downloadText(activeRun.csv.filename, activeRun.csv.content)}
+              >
+                <DownloadIcon />
+                {activeRun.csv.filename}
+              </button>
+            )}
+          </div>
+
+          {subsystem && activeRun ? (
+            <section className="space-y-6">
+              <div className="text-center">
+                <h1 className="display text-3xl font-black uppercase tracking-tight text-ink sm:text-4xl">
+                  {SUBSYSTEMS[subsystem].name}
+                </h1>
+                <p className="mt-2 text-sm text-ink-muted">
+                  {activeRun.engine === 'backend' ? 'Trained model' : 'Baseline'} · {activeRun.engineLabel} ·{' '}
+                  {activeRun.inputFiles.length} file{activeRun.inputFiles.length === 1 ? '' : 's'}
+                </p>
+              </div>
+
+              {activeRun.warnings.length > 0 && (
+                <ul className="card space-y-1.5 px-4 py-3 text-xs text-ink-secondary">
+                  {activeRun.warnings.map((w, i) => (
+                    <li key={i}>· {w}</li>
+                  ))}
+                </ul>
+              )}
+
+              {activeRun.result.kind === 'door' && <DoorResults result={activeRun.result} />}
+              {activeRun.result.kind === 'acv' && <AcvResults result={activeRun.result} />}
+              {activeRun.result.kind === 'rail' && <RailResults result={activeRun.result} />}
+              {activeRun.result.kind === 'shm' && <ShmResults result={activeRun.result} />}
+
+              {/* The model's reasoning goes last, under the data it explains */}
+              {activeRun.engine === 'backend' && <WhyPanel result={activeRun.result} />}
+            </section>
+          ) : (
+            <section className="card p-6 text-center">
+              <p className="text-ink-secondary">No result yet. Pick a subsystem, drop in data and press Analyse.</p>
+            </section>
+          )}
+        </main>
       )}
     </div>
   )

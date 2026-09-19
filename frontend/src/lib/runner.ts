@@ -31,7 +31,6 @@ export interface RunProgress {
 export interface RunOptions {
   apiBase: string
   useBackend: boolean
-  railSensitivity: number
   shmCalibration: ShmCalibration
   onProgress?: (p: RunProgress) => void
   /** Called when a run fits a new SHM calibration, so it can be persisted. */
@@ -75,6 +74,11 @@ export async function runSubsystem(
     result = await predictViaBackend(opts.apiBase, subsystem, files)
     engine = 'backend'
     engineLabel = `Model backend (${opts.apiBase})`
+  } else if (subsystem === 'shm') {
+    // No in-browser stand-in for damage: without the trained model there is nothing honest to show.
+    throw new Error(
+      'Structural Health Monitoring is scored only by the trained model. Start the backend (python serve.py in backend/) and retry.',
+    )
   } else {
     const run = await runBaseline(subsystem, files, opts, warnings)
     result = run.result
@@ -147,7 +151,7 @@ async function runBaseline(
           'The Normal/faulty threshold is derived from the batch, so accuracy improves markedly with the whole test folder dropped in at once rather than a few files.',
         )
       }
-      const predictions = classifyRailBatch(features, opts.railSensitivity)
+      const predictions = classifyRailBatch(features)
       opts.onProgress?.({ done: files.length, total: files.length, label: 'Done' })
       return { result: { kind: 'rail', files: predictions }, label: RAIL_BASELINE_LABEL }
     }

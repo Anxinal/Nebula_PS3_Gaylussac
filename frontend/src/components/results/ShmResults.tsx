@@ -1,10 +1,37 @@
 import { useState } from 'react'
-import { HBarChart } from '../charts/HBarChart'
+import { ColumnChart } from '../charts/ColumnChart'
 import { SectionHead, StatTile } from '../StatTile'
 import { fmt } from '../charts/chartUtils'
 import type { ShmResult } from '../../types'
 
-export function ShmResults({ result, calibrated }: { result: ShmResult; calibrated: boolean }) {
+/*
+ * Colour coding. Every number here comes from the model backend's /predict/shm reply;
+ * this file only colours it. Damage D is placed on a log scale from 0.01 to 1 (Miner's
+ * failure threshold), because real values span two orders of magnitude, and mapped to
+ * a hue that runs green → yellow → orange → red. D ≥ 1 gets a deeper red of its own.
+ */
+const D_FLOOR = 0.01
+const damagePosition = (d: number) =>
+  Math.min(1, Math.max(0, Math.log10(Math.max(d, D_FLOOR) / D_FLOOR) / Math.log10(1 / D_FLOOR)))
+const ramp = (t: number) => `oklch(${0.74 - 0.12 * t} ${0.13 + 0.07 * t} ${155 - 130 * t})`
+export const damageColor = (d: number) => (d >= 1 ? 'oklch(0.55 0.2 20)' : ramp(damagePosition(d)))
+
+/** The key under the damage chart: the hue scale with its log ticks. */
+function DamageScale() {
+  const stops = Array.from({ length: 9 }, (_, i) => `${ramp(i / 8)} ${(i / 8) * 100}%`).join(', ')
+  return (
+    <div className="mt-3">
+      <div className="h-2 rounded-full" style={{ background: `linear-gradient(90deg, ${stops})` }} />
+      <div className="mt-1 flex justify-between text-[0.68rem] text-ink-muted tnum">
+        <span>≤ 0.01</span>
+        <span>0.1</span>
+        <span>1 · failure</span>
+      </div>
+    </div>
+  )
+}
+
+export function ShmResults({ result }: { result: ShmResult }) {
   const [selected, setSelected] = useState(0)
   const values = result.files.map((f) => f.prediction)
   const worst = result.files.reduce((a, b) => (b.prediction > a.prediction ? b : a), result.files[0])
@@ -13,20 +40,6 @@ export function ShmResults({ result, calibrated }: { result: ShmResult; calibrat
 
   return (
     <div className="space-y-6">
-      {!calibrated && (
-        <p
-          className="rounded-lg border px-4 py-3 text-sm"
-          style={{
-            borderColor: 'var(--status-warning)',
-            background: 'color-mix(in srgb, var(--status-warning) 10%, var(--surface-1))',
-          }}
-        >
-          <strong>▲ Uncalibrated.</strong> These are relative damage indices from default S-N constants,
-          not damage in the units PS3 scores. Drop the Train folder together with{' '}
-          <code>Train_Labels.csv</code> once to fit the curve, then re-run your test files.
-        </p>
-      )}
-
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile
           label="Files"
@@ -58,18 +71,21 @@ export function ShmResults({ result, calibrated }: { result: ShmResult; calibrat
       <section className="card p-4">
         <SectionHead
           title="Damage per file"
-          hint="Estimated cumulative fatigue damage for each segment, computed by rainflow counting the stress history and summing each cycle's contribution through the S-N curve. Fatigue failure is reached at D = 1."
+          hint="Estimated cumulative fatigue damage for each segment, from the trained model: rainflow counting of the stress history, a Miner's-rule anchor and a forest on the residual. Fatigue failure is reached at D = 1. Colour follows the scale below, on a log axis so small and large values both separate."
         />
-        <HBarChart
+        <ColumnChart
           data={[...result.files]
             .sort((a, b) => b.prediction - a.prediction)
             .map((f) => ({
               label: f.fileId,
               value: f.prediction,
+              color: damageColor(f.prediction),
               detail: `${Math.round(f.cycles).toLocaleString()} cycles · max range ${fmt(f.maxRange, 3)}`,
             }))}
           valueLabel="Cumulative damage D"
+          categoryLabel="Segment file, most damaged first"
         />
+        <DamageScale />
       </section>
 
       {file && file.bins.length > 0 && (
@@ -77,7 +93,7 @@ export function ShmResults({ result, calibrated }: { result: ShmResult; calibrat
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <SectionHead
               title="Damage by stress range"
-              hint="Rows are stress-range bands, labelled by the middle of the band; bar length is the damage that band contributed. Because damage scales with stress to the power m, a handful of large ranges usually dominate the total even though small ones are far more numerous."
+              hint="Each column is a stress-range band, labelled by the middle of the band; its height is the share of the file's damage that band contributed, and its colour runs green to red from the smallest share to the largest. Because damage scales with stress to the power m, a handful of large ranges usually dominate the total even though small ones are far more numerous."
             />
             <label className="text-xs text-ink-secondary">
               File{' '}
@@ -94,13 +110,19 @@ export function ShmResults({ result, calibrated }: { result: ShmResult; calibrat
               </select>
             </label>
           </div>
-          <HBarChart
-            data={file.bins.map((b) => ({
-              label: fmt(b.rangeMid, 3),
-              value: b.damage,
-              detail: `${Math.round(b.cycles).toLocaleString()} cycles in this band`,
-            }))}
-            valueLabel="Damage contribution"
+          <ColumnChart
+            data={(() => {
+              // Hue by each band's share relative to the file's heaviest band: cool for minor bands, hot for the dominant ones.
+              const top = Math.max(...file.bins.map((b) => b.damage), 1e-12)
+              return file.bins.map((b) => ({
+                label: fmt(b.rangeMid, 3),
+                value: b.damage,
+                color: ramp(b.damage / top),
+                detail: `${Math.round(b.cycles).toLocaleString()} cycles in this band`,
+              }))
+            })()}
+            valueLabel="Share of damage"
+            categoryLabel="Stress range (band midpoint)"
           />
         </section>
       )}
@@ -126,7 +148,12 @@ export function ShmResults({ result, calibrated }: { result: ShmResult; calibrat
               {result.files.map((f) => (
                 <tr key={f.fileId} className="border-b border-hairline last:border-0">
                   <td className="whitespace-nowrap px-3 py-2 text-ink-secondary">{f.fileId}</td>
-                  <td className="tnum whitespace-nowrap px-3 py-2 text-right font-medium text-ink">{fmt(f.prediction, 6)}</td>
+                  <td className="tnum whitespace-nowrap px-3 py-2 text-right font-medium text-ink">
+                    <span className="inline-flex items-center gap-2">
+                      <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: damageColor(f.prediction) }} />
+                      {fmt(f.prediction, 6)}
+                    </span>
+                  </td>
                   <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink-secondary">{Math.round(f.cycles).toLocaleString()}</td>
                   <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink-secondary">{fmt(f.maxRange, 4)}</td>
                 </tr>

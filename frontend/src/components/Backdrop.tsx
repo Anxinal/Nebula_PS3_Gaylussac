@@ -124,8 +124,7 @@ const WINDOW = metal('#3b4654', 90)
 const PLATE = metal('#f4f5f7', 92)
 const TRIM = metal('#9aa2ab', 85)
 const LIT = '#e3f36a' // headlamp, lit
-const DARK = 'var(--page-plane)'
-// Rubber: near black in both themes (DARK is the page colour, which is white in light mode)
+// Rubber: near black in both themes, not the page colour (which is white in light mode)
 const TYRE = 'color-mix(in srgb, #16191d 88%, var(--page-plane))'
 
 type Face = { pts: string; fill: string; opacity?: number }
