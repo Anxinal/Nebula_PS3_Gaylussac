@@ -41,8 +41,18 @@ export function TrainDiagram({ cars }: { cars: AcvCarScore[] }) {
           )
         })}
       </div>
+      <ul className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-ink-secondary">
+        <li className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: 'var(--status-critical)' }} />
+          Most likely leaking
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: 'var(--status-warning)' }} />
+          Runner-up
+        </li>
+      </ul>
       {top && (
-        <p className="mt-3 text-sm text-ink-secondary">
+        <p className="mt-3 text-center text-sm text-ink-secondary">
           Most likely leaking: <strong className="text-ink">Car {top.car}</strong> ({top.evidence}).
           {second && <> Next: Car {second.car} ({second.evidence}).</>}
         </p>

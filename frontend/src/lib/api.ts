@@ -86,21 +86,81 @@ export async function checkHealth(base: string, timeoutMs = 4000): Promise<Backe
   }
 }
 
-export async function predictViaBackend(
-  base: string,
-  subsystem: SubsystemId,
-  files: File[],
-): Promise<SubsystemResult> {
+/*
+ * Cloud Run — where this backend is deployed — caps a single HTTP request at
+ * 32 MB, ahead of our own code; a request over that is rejected by the platform
+ * with a generic HTML page, not our JSON error. Rail/ACV/SHM files can be big
+ * enough that a batch of two or three trips this, so a multi-file upload for
+ * those subsystems is split into several requests, each under the cap, and
+ * their answers are merged back into one result. Each of those experts scores
+ * every file independently (see backend/cdm/experts/*.py — no batch-relative
+ * statistics), so splitting the upload never changes an answer.
+ */
+const MAX_BATCH_BYTES = 24 * 1024 * 1024
+
+/** Door is always a single continuous stream (never more than one file), so it never splits. */
+const SPLITTABLE = new Set<SubsystemId>(['acv', 'rail', 'shm'])
+
+/** Greedily group files so each group stays under `capBytes`; a lone file over the cap goes by itself. */
+function chunkFiles(files: File[], capBytes: number): File[][] {
+  const batches: File[][] = []
+  let current: File[] = []
+  let size = 0
+  for (const f of files) {
+    if (current.length > 0 && size + f.size > capBytes) {
+      batches.push(current)
+      current = []
+      size = 0
+    }
+    current.push(f)
+    size += f.size
+  }
+  if (current.length > 0) batches.push(current)
+  return batches
+}
+
+async function postBatch(base: string, subsystem: SubsystemId, files: File[]): Promise<any> {
   const form = new FormData()
   for (const f of files) form.append('files', f, f.name)
 
   const res = await fetch(`${trimBase(base)}/predict/${subsystem}`, { method: 'POST', body: form })
   if (!res.ok) {
+    if (res.status === 413) {
+      throw new Error(
+        files.length === 1
+          ? `"${files[0].name}" is too large for the server to accept in one upload.`
+          : `This batch of ${files.length} files is too large for the server to accept at once. Try fewer files together.`,
+      )
+    }
     const detail = await res.text().catch(() => '')
     throw new Error(`Backend returned ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`)
   }
-  const body = await res.json()
-  return normalise(subsystem, body)
+  return res.json()
+}
+
+/** Every splittable subsystem replies with one `files` array; concatenate them in upload order. */
+function mergeBatches(bodies: any[]): any {
+  if (bodies.length === 1) return bodies[0]
+  return {
+    ...bodies[0],
+    files: bodies.flatMap((b) => b.files ?? []),
+    n_files: bodies.reduce((n, b) => n + (b.n_files ?? 0), 0),
+  }
+}
+
+export async function predictViaBackend(
+  base: string,
+  subsystem: SubsystemId,
+  files: File[],
+  onBatch?: (done: number, total: number) => void,
+): Promise<SubsystemResult> {
+  const batches = SPLITTABLE.has(subsystem) ? chunkFiles(files, MAX_BATCH_BYTES) : [files]
+  const bodies: any[] = []
+  for (const batch of batches) {
+    bodies.push(await postBatch(base, subsystem, batch))
+    onBatch?.(bodies.length, batches.length)
+  }
+  return normalise(subsystem, mergeBatches(bodies))
 }
 
 /** The backend's snake_case explanation, or undefined when it sent none. */

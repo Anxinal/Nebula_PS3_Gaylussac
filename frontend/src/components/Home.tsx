@@ -52,14 +52,14 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
       <div
         className={`mx-auto flex w-full max-w-xl flex-col px-4 pb-12 pt-8 lg:h-full lg:overflow-hidden lg:px-8 lg:py-4 ${out}`}
       >
-        {/* Auto margins centre the panel vertically; the cards are compact enough that it fits without scrolling */}
-        <div className="my-auto">
+        {/* A small fixed gap above, flexible space below: sits higher than dead centre, still with no scroll */}
+        <div className="mt-[2vh] mb-auto lg:mt-[1vh]">
           <section>
             <h2 className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
               Pick where to start
             </h2>
 
-            <div className="mt-2.5 grid gap-2">
+            <div className="mt-3.5 grid gap-3">
               {SUBSYSTEM_ORDER.map((id) => {
                 const meta = SUBSYSTEMS[id]
                 const Icon = SUBSYSTEM_ICON[id]
@@ -68,7 +68,7 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
                     key={id}
                     type="button"
                     onClick={() => pick(id)}
-                    className="card pick-card group flex items-center gap-3 px-4 py-2 text-left transition-all
+                    className="card pick-card group flex items-center gap-3.5 px-4 py-3 text-left transition-all
                                hover:-translate-y-0.5 hover:shadow-lg"
                   >
                     <span
@@ -93,7 +93,7 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
                           →
                         </span>
                       </span>
-                      <span className="block text-xs leading-snug text-ink-secondary">{meta.tagline}</span>
+                      <span className="mt-0.5 block text-xs leading-snug text-ink-secondary">{meta.tagline}</span>
                     </span>
                   </button>
                 )
@@ -101,11 +101,11 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
             </div>
           </section>
 
-          <section className="mt-4">
+          <section className="mt-6">
             <h2 className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted lg:text-left">
               How it works
             </h2>
-            <ol className="mt-2 space-y-1.5">
+            <ol className="mt-3 space-y-2.5">
               {[
                 ['Choose', 'Pick the subsystem you have data for'],
                 ['Drop', 'Drag in a file, or a whole folder at once'],

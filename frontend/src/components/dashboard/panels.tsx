@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { ColumnChart } from '../charts/ColumnChart'
+import { GroupedColumnChart } from '../charts/GroupedColumnChart'
+import { PieChart } from '../charts/PieChart'
 import { LineChart } from '../charts/LineChart'
 import { MultiLineChart } from '../charts/MultiLineChart'
 import { SegmentTimeline } from '../charts/SegmentTimeline'
@@ -135,6 +137,10 @@ function door(r: DoorResult): DashboardSpec {
       }))}
       valueLabel="Mean current (mA)"
       categoryLabel="Door cycle"
+      legend={[
+        { label: 'Normal', color: GOOD },
+        { label: 'Abnormal resistance', color: BAD },
+      ]}
     />
   )
   const probabilityColumns = (compact: boolean) => (
@@ -149,6 +155,12 @@ function door(r: DoorResult): DashboardSpec {
       }))}
       valueLabel="P(abnormal)"
       categoryLabel="Door cycle"
+      gradient={{
+        fromColor: probabilityColor(0),
+        toColor: probabilityColor(1),
+        fromLabel: 'Certain normal (0)',
+        toLabel: 'Certain abnormal (1)',
+      }}
     />
   )
 
@@ -183,6 +195,10 @@ function door(r: DoorResult): DashboardSpec {
           xLabel="Time (s)"
           yLabel="Current (mA)"
           bands={bands}
+          bandLegend={[
+            { label: 'Normal', color: GOOD },
+            { label: 'Abnormal resistance', color: BAD },
+          ]}
           height={200}
         />
       ),
@@ -192,6 +208,10 @@ function door(r: DoorResult): DashboardSpec {
           xLabel="Time from start of stream (s)"
           yLabel="Motor current (mA)"
           bands={bands}
+          bandLegend={[
+            { label: 'Normal', color: GOOD },
+            { label: 'Abnormal resistance', color: BAD },
+          ]}
           height={300}
         />
       ),
@@ -287,6 +307,7 @@ function acv(r: AcvResult, fileIndex: number): DashboardSpec {
       }))}
       valueLabel="Model score"
       categoryLabel="Car, most likely leak first"
+      gradient={{ fromColor: ramp(0), toColor: ramp(1), fromLabel: 'Lowest score', toLabel: 'Highest score' }}
     />
   )
   const temps = (compact: boolean) =>
@@ -443,16 +464,15 @@ function rail(r: RailResult): DashboardSpec {
   )
 
   const split = (compact: boolean) => (
-    <ColumnChart
+    <PieChart
       compact={compact}
       data={(['Normal', 'Side I', 'Side II'] as RailLabel[]).map((l) => ({
         label: l,
         value: count(l),
         color: RAIL_COLOR[l],
         detail: `${pct(count(l), files.length)} of recordings`,
+        items: files.filter((f) => f.prediction === l).map((f) => f.fileId),
       }))}
-      valueLabel="Recordings"
-      categoryLabel="Model’s call"
     />
   )
   const probs = (compact: boolean) => (
@@ -466,22 +486,24 @@ function rail(r: RailResult): DashboardSpec {
         detail: `${f.prediction} · Side I ${fmt(f.sideI, 3)} · Side II ${fmt(f.sideII, 3)}`,
       }))}
       valueLabel="P(corrugated), louder rail"
-      categoryLabel="Recording, most likely first"
+      categoryLabel="Recording"
+      gradient={{ fromColor: probabilityColor(0), toColor: probabilityColor(1), fromLabel: 'Low', toLabel: 'High' }}
     />
   )
   const contrast = (compact: boolean) => (
-    <ColumnChart
+    <GroupedColumnChart
       compact={compact}
       maxColumns={compact ? undefined : files.length}
       data={[...files]
         .sort((a, b) => b.sideI - b.sideII - (a.sideI - a.sideII))
         .map((f) => ({
           label: f.fileId,
-          value: f.sideI - f.sideII,
-          color: f.sideI >= f.sideII ? RAIL_COLOR['Side I'] : RAIL_COLOR['Side II'],
-          detail: `${f.prediction} · Side I ${fmt(f.sideI, 3)} · Side II ${fmt(f.sideII, 3)}`,
+          values: [f.sideI, f.sideII],
+          detail: `Called ${f.prediction}`,
         }))}
-      valueLabel="P(Side I) − P(Side II)"
+      seriesLabels={['Side I', 'Side II']}
+      seriesColors={[RAIL_COLOR['Side I'], RAIL_COLOR['Side II']]}
+      valueLabel="P(corrugated)"
       categoryLabel="Recording"
     />
   )
@@ -494,6 +516,7 @@ function rail(r: RailResult): DashboardSpec {
         .map((f) => ({ label: f.fileId, value: f.speedKmh as number, color: RAIL_COLOR[f.prediction], detail: f.prediction }))}
       valueLabel="Speed (km/h)"
       categoryLabel="Recording"
+      legend={(['Normal', 'Side I', 'Side II'] as RailLabel[]).map((l) => ({ label: l, color: RAIL_COLOR[l] }))}
     />
   )
 
@@ -537,7 +560,7 @@ function rail(r: RailResult): DashboardSpec {
         small: contrast(true),
         large: contrast(false),
         about:
-          'The difference between the two rails’ probabilities in each recording. Above zero, the model leans to Side I; below, to Side II.',
+          'Each rail’s corrugation probability in every recording, as a pair of bars — Side I and Side II side by side — so the two are compared directly, not folded into one difference.',
         facts: [
           `Side I scored higher in ${files.filter((f) => f.sideI > f.sideII).length} recordings, Side II in ${files.filter((f) => f.sideII > f.sideI).length}.`,
         ],
@@ -609,6 +632,7 @@ function shm(r: ShmResult, fileIndex: number): DashboardSpec {
       }))}
       valueLabel={label}
       categoryLabel="Segment file, most damaged first"
+      gradient={{ fromColor: damageColor(0.01), toColor: damageColor(1), fromLabel: 'Low damage', toLabel: 'D = 1 (failure)' }}
     />
   )
   const bins = (compact: boolean) =>
@@ -624,6 +648,7 @@ function shm(r: ShmResult, fileIndex: number): DashboardSpec {
         }))}
         valueLabel="Share of damage"
         categoryLabel="Stress range (band midpoint)"
+        gradient={{ fromColor: ramp(0), toColor: ramp(1), fromLabel: 'Smallest share', toLabel: 'Largest share' }}
       />
     ) : (
       <p className="text-sm text-ink-muted">The backend sent no stress-range bands for this file.</p>
@@ -693,5 +718,63 @@ function shm(r: ShmResult, fileIndex: number): DashboardSpec {
     ],
     files: files.map((x) => x.fileId),
     fileNoun: 'Segment',
+  }
+}
+
+// ---------------------------------------------------------------- Verdict
+
+export interface Verdict {
+  /** 'good' draws in the healthy colour, 'critical' in the fault colour. */
+  status: 'good' | 'critical'
+  label: string
+  detail?: string
+}
+
+/**
+ * The one-line answer for the top of the page: normal, or not — and if not,
+ * how many of what. Counted straight from the same result the dashboard below
+ * renders; ACV has no "normal" state (a leak is present by construction, per
+ * the backend — the task is only ever which car), so it reports the top pick instead.
+ */
+export function buildVerdict(result: SubsystemResult): Verdict {
+  switch (result.kind) {
+    case 'door': {
+      const abnormal = result.segments.filter((s) => s.prediction === 'Abnormal resistance').length
+      return abnormal > 0
+        ? {
+            status: 'critical',
+            label: 'Abnormal resistance found',
+            detail: `${plural(abnormal, 'cycle')} of ${result.segments.length} flagged`,
+          }
+        : { status: 'good', label: 'Normal', detail: `All ${plural(result.segments.length, 'cycle')} within range` }
+    }
+    case 'acv': {
+      const top = result.files[0]?.cars[0]
+      return {
+        status: 'critical',
+        label: top ? `Check Car ${top.car} first` : 'No ranking available',
+        detail: result.files.length > 1 ? `Top pick from ${plural(result.files.length, 'case file')}` : top?.evidence,
+      }
+    }
+    case 'rail': {
+      const faults = result.files.filter((f) => f.prediction !== 'Normal').length
+      return faults > 0
+        ? {
+            status: 'critical',
+            label: 'Corrugation detected',
+            detail: `${plural(faults, 'recording')} of ${result.files.length} flagged`,
+          }
+        : { status: 'good', label: 'Normal', detail: `All ${plural(result.files.length, 'recording')} normal` }
+    }
+    case 'shm': {
+      const failed = result.files.filter((f) => f.prediction >= 1).length
+      return failed > 0
+        ? {
+            status: 'critical',
+            label: 'Fatigue threshold reached',
+            detail: `${plural(failed, 'segment')} at or past D = 1`,
+          }
+        : { status: 'good', label: 'Normal', detail: `All ${plural(result.files.length, 'segment')} below D = 1` }
+    }
   }
 }

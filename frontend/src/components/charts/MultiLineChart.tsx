@@ -87,7 +87,7 @@ export function MultiLineChart({
           {xLabel}
         </text>
       </svg>
-      <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[0.7rem] text-ink-secondary">
+      <ul className="mt-1 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[0.7rem] text-ink-secondary">
         {series.map((s) => (
           <li key={s.name} className="inline-flex items-center gap-1.5">
             <span aria-hidden className="h-0.5 w-3 rounded" style={{ background: s.color, height: s.emphasis ? 3 : 2 }} />

@@ -2,58 +2,35 @@ import { useState } from 'react'
 import { ChartTooltip, type TooltipState } from './ChartTooltip'
 import { CHART_INK, fmt, linearScale, ticks } from './chartUtils'
 
-export interface ColumnDatum {
+export interface GroupedDatum {
   label: string
-  value: number
-  /** Overrides the series colour for this column. */
-  color?: string
+  /** One value per series, in the same order as `seriesLabels`. */
+  values: number[]
   detail?: string
 }
 
-/** A discrete legend: one swatch per named colour actually used in the bars. */
-export interface ColumnLegendEntry {
-  label: string
-  color: string
-}
-
-/** A continuous colour scale, for bars coloured by a ramp rather than a fixed set of categories. */
-export interface ColumnGradient {
-  fromColor: string
-  toColor: string
-  fromLabel: string
-  toLabel: string
-}
-
 /**
- * Vertical bars, one series: categories along the bottom, values up the side,
- * with both axes titled. Category labels tilt when there are too many to sit
- * level, so long file names still fit. Negative values hang below the zero line.
- * A centred legend sits underneath — the exact colours the bars use, whether
- * that is a fixed set of categories or a continuous scale.
+ * A comparative bar chart: each category gets one bar per series, side by side,
+ * all rising from a single zero baseline — so two quantities that share a scale
+ * (here, Side I and Side II's probabilities) are read by height, directly
+ * against each other, rather than folded into one signed difference.
  */
-export function ColumnChart({
+export function GroupedColumnChart({
   data,
+  seriesLabels,
+  seriesColors,
   valueLabel,
   categoryLabel,
-  color = 'var(--series-1)',
-  highlightIndex = -1,
-  legend,
-  gradient,
   compact = false,
-  maxColumns = compact ? 14 : 30,
+  maxColumns = compact ? 10 : 30,
 }: {
-  data: ColumnDatum[]
+  data: GroupedDatum[]
+  seriesLabels: string[]
+  seriesColors: string[]
   /** Title of the vertical (value) axis. */
   valueLabel: string
   /** Title of the horizontal (category) axis. */
   categoryLabel: string
-  color?: string
-  highlightIndex?: number
-  /** Discrete legend entries. Falls back to one swatch for `color` (or highlight/other) when omitted. */
-  legend?: ColumnLegendEntry[]
-  /** A continuous-scale legend instead of discrete swatches — for bars coloured by a ramp. */
-  gradient?: ColumnGradient
-  /** Dashboard-tile size: a narrower canvas, so the same type size reads larger. */
   compact?: boolean
   maxColumns?: number
 }) {
@@ -61,43 +38,32 @@ export function ColumnChart({
   const cols = data.slice(0, maxColumns)
   if (cols.length === 0) return null
 
-  // Labels sit level when few and short; otherwise they tilt and the bottom margin grows to fit them.
   const maxChars = compact ? 10 : 16
   const longest = Math.max(...cols.map((d) => Math.min(d.label.length, maxChars)))
   const tilt = cols.length > (compact ? 5 : 8) || longest * cols.length > (compact ? 36 : 70)
   const LABEL_H = tilt ? 14 + longest * 4.6 : 20
 
-  const values = cols.map((d) => d.value)
-  const min = Math.min(0, ...values)
+  const values = cols.flatMap((d) => d.values)
   const max = Math.max(0, ...values)
-  const tickValues = ticks(min, max || 1, 5)
+  const tickValues = ticks(0, max || 1, 5)
 
   const width = compact ? 400 : 720
-  // Wide enough for the longest tick number, so it never overlaps the plot or the title beside it.
   const widestTick = Math.max(...tickValues.map((t) => fmt(t).length), 1)
   const PAD_L = Math.max(48, 34 + widestTick * 6.5)
   const PAD_R = 12
   const PAD_T = 12
   const PLOT_H = compact ? 130 : 240
-  const PAD_B = LABEL_H + 26 // category labels, then the category-axis title
+  const PAD_B = LABEL_H + 26
   const height = PAD_T + PLOT_H + PAD_B
 
-  const y = linearScale([min, max || 1], [PAD_T + PLOT_H, PAD_T])
+  const y = linearScale([0, max || 1], [PAD_T + PLOT_H, PAD_T])
   const zero = y(0)
 
+  const n = seriesLabels.length
   const slot = (width - PAD_L - PAD_R) / cols.length
-  const barW = Math.max(3, Math.min(48, slot * 0.72))
-
-  // When the caller doesn't say what the colours mean, fall back to a sensible default
-  // so every chart still carries a legend: the highlight/other pair, or one plain swatch.
-  const autoLegend: ColumnLegendEntry[] =
-    legend ??
-    (highlightIndex >= 0
-      ? [
-          { label: 'Highlighted', color: 'var(--series-2)' },
-          { label: 'Other', color },
-        ]
-      : [{ label: valueLabel, color }])
+  const groupW = slot * 0.78
+  const barGap = compact ? 2 : 3
+  const barW = Math.max(2, (groupW - barGap * (n - 1)) / n)
 
   return (
     <div className="relative">
@@ -113,9 +79,7 @@ export function ColumnChart({
 
         {cols.map((d, i) => {
           const cx = PAD_L + slot * (i + 0.5)
-          const top = Math.min(y(d.value), zero)
-          const h = Math.max(2, Math.abs(y(d.value) - zero))
-          const fill = d.color ?? (i === highlightIndex ? 'var(--series-2)' : color)
+          const groupLeft = cx - groupW / 2
           const labelY = PAD_T + PLOT_H + 14
           const text = d.label.length > maxChars ? `${d.label.slice(0, maxChars - 1)}…` : d.label
           return (
@@ -129,9 +93,11 @@ export function ColumnChart({
                   content: (
                     <>
                       <div className="font-medium">{d.label}</div>
-                      <div className="tnum text-ink-secondary">
-                        {valueLabel}: {fmt(d.value, 4)}
-                      </div>
+                      {seriesLabels.map((name, si) => (
+                        <div key={name} className="tnum text-ink-secondary">
+                          {name}: {fmt(d.values[si] ?? 0, 4)}
+                        </div>
+                      ))}
                       {d.detail && <div className="text-ink-secondary">{d.detail}</div>}
                     </>
                   ),
@@ -139,17 +105,20 @@ export function ColumnChart({
               }}
               onMouseLeave={() => setTip(null)}
             >
-              {/* Hit target spans the whole column slot, not just the bar. */}
+              {/* Hit target spans the whole group slot, not just the bars. */}
               <rect x={cx - slot / 2} y={PAD_T} width={slot} height={PLOT_H} fill="transparent" />
-              <rect x={cx - barW / 2} y={top} width={barW} height={h} rx={3} fill={fill} />
+              {d.values.map((v, si) => {
+                const barX = groupLeft + si * (barW + barGap)
+                const h = Math.max(1.5, zero - y(v))
+                return <rect key={si} x={barX} y={zero - h} width={barW} height={h} rx={2} fill={seriesColors[si]} />
+              })}
               <text
                 x={cx}
                 y={labelY}
                 textAnchor={tilt ? 'end' : 'middle'}
                 transform={tilt ? `rotate(-40 ${cx} ${labelY})` : undefined}
                 fontSize={11}
-                fill={i === highlightIndex ? CHART_INK.primary : CHART_INK.secondary}
-                fontWeight={i === highlightIndex ? 600 : 400}
+                fill={CHART_INK.secondary}
               >
                 {text}
               </text>
@@ -159,7 +128,6 @@ export function ColumnChart({
 
         <line x1={PAD_L} x2={width - PAD_R} y1={zero} y2={zero} stroke={CHART_INK.axis} strokeWidth={1} />
 
-        {/* Axis titles */}
         <text
           x={16}
           y={PAD_T + PLOT_H / 2}
@@ -183,31 +151,16 @@ export function ColumnChart({
         </text>
       </svg>
       <ChartTooltip tip={tip} />
-
-      {gradient ? (
-        <div className="mx-auto mt-2 flex max-w-[14rem] flex-col items-center gap-1">
-          <div
-            className="h-2 w-full rounded-full"
-            style={{ background: `linear-gradient(90deg, ${gradient.fromColor}, ${gradient.toColor})` }}
-          />
-          <div className="flex w-full justify-between text-[0.68rem] text-ink-muted">
-            <span>{gradient.fromLabel}</span>
-            <span>{gradient.toLabel}</span>
-          </div>
-        </div>
-      ) : (
-        <ul className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[0.7rem] text-ink-secondary">
-          {autoLegend.map((e) => (
-            <li key={e.label} className="inline-flex items-center gap-1.5">
-              <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: e.color }} />
-              {e.label}
-            </li>
-          ))}
-        </ul>
-      )}
-
+      <ul className="mt-1 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[0.7rem] text-ink-secondary">
+        {seriesLabels.map((name, i) => (
+          <li key={name} className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: seriesColors[i] }} />
+            {name}
+          </li>
+        ))}
+      </ul>
       {data.length > maxColumns && (
-        <p className="mt-2 text-center text-xs text-ink-muted">
+        <p className="mt-2 text-xs text-ink-muted">
           Showing the first {maxColumns} of {data.length}
           {compact ? ' — open the chart for all of them.' : ' — the table below has them all.'}
         </p>

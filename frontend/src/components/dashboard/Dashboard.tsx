@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
 import { WhyPanel } from '../results/WhyPanel'
-import { buildDashboard } from './panels'
+import { buildDashboard, buildVerdict } from './panels'
 import type { RunRecord } from '../../types'
 
 /**
- * One subsystem's result as a dashboard: headline figures across the top, then a
- * grid of small charts. Clicking a chart opens it full size on its own page, with
- * what it shows and what the data says, and the rows behind it. The model's own
- * explanation sits at the bottom of the dashboard.
+ * One subsystem's result as a dashboard: a plain normal/not-normal verdict right
+ * at the top, then headline figures and a grid of small charts. Clicking a chart
+ * opens it full size on its own page, with what it shows and what the data says,
+ * and the rows behind it. The model's own reasoning — "why" it decided this —
+ * sits at the bottom, for whoever wants to dig past the verdict.
  */
 export function Dashboard({ run }: { run: RunRecord }) {
   const [fileIndex, setFileIndex] = useState(0)
   const [openId, setOpenId] = useState<string | null>(null)
   const spec = buildDashboard(run.result, fileIndex)
+  const verdict = buildVerdict(run.result)
   const open = spec.panels.find((p) => p.id === openId)
 
   // A new run (or subsystem) starts back on the grid, on its first file.
@@ -89,6 +91,35 @@ export function Dashboard({ run }: { run: RunRecord }) {
 
   return (
     <section className="space-y-4">
+      {/* The plain verdict, first thing on the page: normal, or not, and by how much */}
+      <div
+        className="card flex items-center gap-3 border-2 px-5 py-4"
+        style={{ borderColor: verdict.status === 'critical' ? 'var(--status-critical)' : 'var(--status-good)' }}
+      >
+        <span
+          aria-hidden
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg font-bold"
+          style={{
+            color: verdict.status === 'critical' ? 'var(--status-critical)' : 'var(--status-good)',
+            background:
+              verdict.status === 'critical'
+                ? 'color-mix(in srgb, var(--status-critical) 14%, transparent)'
+                : 'color-mix(in srgb, var(--status-good) 14%, transparent)',
+          }}
+        >
+          {verdict.status === 'critical' ? '!' : '✓'}
+        </span>
+        <div className="min-w-0">
+          <p
+            className="display text-lg font-bold leading-tight"
+            style={{ color: verdict.status === 'critical' ? 'var(--status-critical)' : 'var(--status-good)' }}
+          >
+            {verdict.label}
+          </p>
+          {verdict.detail && <p className="text-sm text-ink-secondary">{verdict.detail}</p>}
+        </div>
+      </div>
+
       {fileSelect && <div className="flex justify-end">{fileSelect}</div>}
 
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -103,7 +134,7 @@ export function Dashboard({ run }: { run: RunRecord }) {
         ))}
       </dl>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         {spec.panels.map((p) => (
           // A clickable tile rather than a <button>: it holds whole charts, which a button may not contain.
           <div
@@ -131,7 +162,7 @@ export function Dashboard({ run }: { run: RunRecord }) {
         ))}
       </div>
 
-      {/* The model's reasoning goes last, under the data it explains */}
+      {/* The model's own reasoning goes last, for whoever wants to dig past the verdict above */}
       <WhyPanel result={run.result} />
     </section>
   )

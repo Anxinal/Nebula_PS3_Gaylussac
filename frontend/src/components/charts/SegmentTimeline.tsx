@@ -96,7 +96,7 @@ export function SegmentTimeline({
         ))}
       </svg>
       <ChartTooltip tip={tip} />
-      <div className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-secondary">
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-ink-secondary">
         <span className="inline-flex items-center gap-2">
           <span className="h-3 w-3 rounded-sm" style={{ background: STATUS_COLOR.Normal }} aria-hidden />
           <span aria-hidden>✓</span> Normal

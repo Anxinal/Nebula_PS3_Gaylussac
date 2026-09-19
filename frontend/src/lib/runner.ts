@@ -50,7 +50,13 @@ export async function runSubsystem(
     throw new Error('The trained models are not reachable. Start the backend (python serve.py in backend/) and retry.')
   }
   opts.onProgress?.({ done: 0, total: 1, label: 'Sending files to the trained models…' })
-  const result = await predictViaBackend(opts.apiBase, subsystem, files)
+  const result = await predictViaBackend(opts.apiBase, subsystem, files, (done, total) => {
+    opts.onProgress?.({
+      done,
+      total,
+      label: total > 1 ? `Sending batch ${done} of ${total} to the trained models…` : 'Sending files to the trained models…',
+    })
+  })
   opts.onProgress?.({ done: 1, total: 1, label: 'Results in' })
 
   return {

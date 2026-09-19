@@ -9,16 +9,23 @@ export interface Band {
   label: string
 }
 
+export interface LineLegendEntry {
+  label: string
+  color: string
+}
+
 /**
  * Single-series line with a crosshair. Optional shaded bands mark the detected
- * segments underneath the trace, so timing and signal are read together.
- * One series, so no legend box — the title names it.
+ * segments underneath the trace, so timing and signal are read together. A
+ * centred legend below names the line and, when the bands use more than one
+ * colour, what each of those means too.
  */
 export function LineChart({
   points,
   xLabel,
   yLabel,
   bands = [],
+  bandLegend,
   height = 200,
   color = 'var(--series-1)',
   compact = false,
@@ -27,6 +34,8 @@ export function LineChart({
   xLabel: string
   yLabel: string
   bands?: Band[]
+  /** What each distinct band colour means, for the legend. */
+  bandLegend?: LineLegendEntry[]
   height?: number
   color?: string
   /** Dashboard-tile size: a narrower canvas, so the same type size reads larger. */
@@ -157,6 +166,18 @@ export function LineChart({
         </text>
       </svg>
       <ChartTooltip tip={tip} />
+      <ul className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[0.7rem] text-ink-secondary">
+        <li className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="h-0.5 w-3 rounded" style={{ background: color }} />
+          {yLabel}
+        </li>
+        {bandLegend?.map((e) => (
+          <li key={e.label} className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: e.color, opacity: 0.6 }} />
+            {e.label}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

@@ -1,9 +1,24 @@
 import { useEffect, useState } from 'react'
+import { PastAnalysisMenu } from './PastAnalysisMenu'
+import type { RunRecord, SubsystemId } from '../types'
 
-export function Header({ onHome, showHome }: { onHome: () => void; showHome: boolean }) {
+export function Header({
+  onHome,
+  showHome,
+  runs,
+  onSelectRun,
+}: {
+  onHome: () => void
+  showHome: boolean
+  /** Every subsystem analysed so far, for the "Past analysis" menu. */
+  runs: Map<SubsystemId, RunRecord>
+  onSelectRun: (id: SubsystemId) => void
+}) {
   return (
-    <header className="sticky top-0 z-20 border-b border-hairline"
-      style={{ background: 'var(--glass-strong)', backdropFilter: 'blur(14px) saturate(1.2)' }}>
+    <header
+      className="sticky top-0 z-20 border-b border-hairline"
+      style={{ background: 'var(--glass-strong)', backdropFilter: 'blur(14px) saturate(1.2)' }}
+    >
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
         <button
           type="button"
@@ -28,6 +43,7 @@ export function Header({ onHome, showHome }: { onHome: () => void; showHome: boo
               <span aria-hidden>←</span> Start
             </button>
           )}
+          <PastAnalysisMenu runs={runs} onSelect={onSelectRun} />
           <ThemeToggle />
         </div>
       </div>

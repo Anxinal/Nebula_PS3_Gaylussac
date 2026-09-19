@@ -31,9 +31,11 @@ export const SUBSYSTEMS: Record<SubsystemId, SubsystemMeta> = {
     signal: 'Motor current / voltage / back-EMF + door position',
     metric: 'IoU-weighted F1',
     outputFile: 'door_predictions.csv',
-    expects: 'The continuous stream — Door Test.csv.',
+    // The backend scores every uploaded stream and merges their cycles into one result, so more than
+    // one file is fine — e.g. several days' worth of Door Test.csv, or streams from different doors.
+    expects: 'One or more continuous streams — e.g. Door Test.csv.',
     accept: '.csv',
-    multiple: false,
+    multiple: true,
     extensions: ['.csv'],
   },
   acv: {

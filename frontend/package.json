@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Train Condition Monitoring console \u2014 NebulaX 2026 PS3 (Team Gaylussac)",
+  "description": "Train Condition Monitoring console — NebulaX 2026 PS3 (Team Gaylussac)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -12,7 +12,6 @@
     "test": "esbuild src/test/engines.test.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/engines.test.mjs --log-level=warning && node node_modules/.cache/engines.test.mjs"
   },
   "dependencies": {
-    "jszip": "^3.10.1",
     "papaparse": "^5.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
