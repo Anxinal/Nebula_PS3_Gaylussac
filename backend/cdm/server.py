@@ -19,6 +19,7 @@ Run it with::
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import tempfile
 from contextlib import asynccontextmanager
@@ -27,6 +28,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import SUBSYSTEMS
 from .pipeline import HierarchicalPipeline
@@ -61,7 +63,11 @@ async def lifespan(app: FastAPI):
     _state["pipeline"] = None
 
 
-def create_app(*, allow_origins: list[str] | None = None) -> FastAPI:
+def create_app(
+    *,
+    allow_origins: list[str] | None = None,
+    static_dir: str | Path | None = None,
+) -> FastAPI:
     app = FastAPI(
         title="NebulaX PS3 condition monitoring",
         description="Trained rail-vehicle fault models behind a JSON API.",
@@ -123,6 +129,19 @@ def create_app(*, allow_origins: list[str] | None = None) -> FastAPI:
         payload["n_files"] = len(saved)
         return JSONResponse(payload)
 
+    # Optionally serve the built frontend from this same app. That is what lets
+    # a single Cloud Run service answer both the page and its uploads: same
+    # origin, so the browser never preflights and there is no second URL to
+    # configure. Mounted last - a mount on "/" matches every path, and would
+    # shadow /health and /predict if it were registered before them.
+    if static_dir is not None:
+        root = Path(static_dir)
+        if root.is_dir():
+            app.mount("/", StaticFiles(directory=root, html=True), name="frontend")
+            log.info("serving the frontend from %s", root)
+        else:
+            log.warning("no frontend at %s - serving the API only", root)
+
     return app
 
 
@@ -177,7 +196,19 @@ def _reject_mismatched(paths: list[Path], subsystem: str) -> None:
         )
 
 
-app = create_app()
+def _origins_from_env() -> list[str]:
+    raw = os.environ.get("CDM_ALLOW_ORIGINS", "*")
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+#: The ASGI app a host imports as ``cdm.server:app`` - this is what the
+#: container runs. Both knobs are optional: with neither set this is the
+#: API-only app the tests use.
+#:
+#:   CDM_STATIC_DIR     directory of the built frontend to serve at "/"
+#:   CDM_ALLOW_ORIGINS  comma-separated CORS origins (default: any)
+app = create_app(static_dir=os.environ.get("CDM_STATIC_DIR") or None,
+                 allow_origins=_origins_from_env())
 
 
 def main() -> None:
@@ -190,13 +221,16 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--origins", default="*",
                         help="comma-separated CORS origins (default: any)")
+    parser.add_argument("--static", default=os.environ.get("CDM_STATIC_DIR"),
+                        help="serve a built frontend (frontend/dist) at / as well")
     parser.add_argument("--reload", action="store_true")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     origins = [o.strip() for o in args.origins.split(",") if o.strip()]
     uvicorn.run(
-        "cdm.server:app" if args.reload else create_app(allow_origins=origins),
+        "cdm.server:app" if args.reload
+        else create_app(allow_origins=origins, static_dir=args.static),
         host=args.host, port=args.port, reload=args.reload,
     )
 

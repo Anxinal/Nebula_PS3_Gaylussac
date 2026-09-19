@@ -99,6 +99,7 @@ deep-dive below is unchanged.
 ```bash
 .venv/bin/python serve.py                      # http://127.0.0.1:8000, /docs for the schema
 .venv/bin/python serve.py --origins https://anxinal.github.io
+.venv/bin/python serve.py --static ../frontend/dist   # also serve the built app at /
 ```
 
 Implements the contract in `frontend/README.md`, so the app switches from its
@@ -109,6 +110,11 @@ in-browser baselines to the trained models as soon as this is reachable. Port
 GET  /health              -> {"status":"ok","models":{"rail":true,"shm":true,"acv":true,"door":true}}
 POST /predict/{subsystem} multipart/form-data, repeated field "files" (.csv / .xlsx)
 ```
+
+`--static` (or `$CDM_STATIC_DIR`) mounts a built frontend at `/`, which is how
+the deployed container serves the app and the models from one origin — the
+mount goes on last so it cannot shadow `/health` or `/predict`. `$CDM_ALLOW_ORIGINS`
+sets CORS when the app is hosted elsewhere. See the root README for Cloud Run.
 
 **Prediction and explanation are separate fields**, so the UI can render a
 result without parsing prose and show the reasoning beside it:

@@ -5,9 +5,10 @@ estimate degradation across four rail-vehicle subsystems (Door, ACV, Rail Corrug
 raw sensor time series.
 
 ```
-frontend/                            the app (PS3 deliverable item 3) — React + Vite, deploys to GitHub Pages
-backend/                             model service (optional) — see frontend/README.md for the API contract
+frontend/                            the app (PS3 deliverable item 3) — React + Vite
+backend/                             model service — see frontend/README.md for the API contract
 NebulaX-Hackathon-ProblemStatement/  the organisers' brief, datasets and info kits
+Dockerfile                           builds app + models into one image for Cloud Run
 .github/workflows/deploy.yml         builds and publishes frontend/ to GitHub Pages
 ```
 
@@ -29,9 +30,36 @@ submission schemas and deployment.
 
 ## Publishing
 
+There are two deployments, and they differ in one way that matters: **which engine answers.**
+
+| | URL | Engine |
+|---|---|---|
+| **Cloud Run** | `https://nebulaquestion3-gay-lussac-122875774727.asia-southeast1.run.app/` | the trained models |
+| **GitHub Pages** | `https://<owner>.github.io/<repo>/` | in-browser rule baselines |
+
+### Cloud Run — the app and the trained models
+
+The root `Dockerfile` builds both into one image: the React app is compiled and served as static
+files by the same FastAPI process that loads the four `*.joblib` experts. One origin, so the
+browser never preflights an upload and there is no backend URL for anyone to paste in.
+
+```bash
+docker build -t nebula-ps3 .
+docker run -p 8080:8080 nebula-ps3        # http://localhost:8080
+```
+
+Deployment is continuous: Cloud Run is connected to this repo, so a push to `main` rebuilds and
+rolls out. The service needs **2 GiB of memory** — the four models are loaded at startup and the
+512 MiB default is not enough.
+
+> Cloud Run caps an HTTP/1 request at 32 MiB. A single rail recording (~16 MB) is fine; dropping a
+> whole rail folder at once is not, and falls back to the browser baselines.
+
+### GitHub Pages — the app alone
+
 Enable **Settings → Pages → Source: GitHub Actions** once. Every push to `main` touching `frontend/`
-then type-checks, runs the engine checks, builds and publishes to
-`https://<owner>.github.io/<repo>/`.
+then type-checks, runs the engine checks, builds and publishes. No server, so it runs the
+transparent rule baselines; a backend can still be pointed at from the app header.
 
 ## Datasets
 

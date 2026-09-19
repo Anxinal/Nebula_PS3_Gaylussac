@@ -23,13 +23,32 @@ npm run dev      # http://localhost:5173
 
 ## Deploying
 
-`.github/workflows/deploy.yml` builds and publishes to GitHub Pages on every push to `main` that
-touches `frontend/`. Enable it once:
+Two targets, built from the same source.
+
+### Cloud Run — with the trained models
+
+The repo-root `Dockerfile` compiles this app and hands `dist/` to the backend, which serves it as
+static files alongside `/health` and `/predict/*`. Because both sit on one origin, the build sets
+`VITE_API_BASE_URL=/` and the app talks to the models with same-origin requests — no CORS, nothing
+to configure in the header. Pushing to `main` rebuilds and rolls out; see the root README.
+
+To reproduce it locally:
+
+```bash
+VITE_BASE=/ VITE_API_BASE_URL=/ npm run build
+cd ../backend && .venv/bin/python serve.py --static ../frontend/dist --port 8080
+```
+
+### GitHub Pages — baselines only
+
+`.github/workflows/deploy.yml` builds and publishes on every push to `main` that touches
+`frontend/`. Enable it once:
 
 **Settings → Pages → Build and deployment → Source: GitHub Actions.**
 
 The site then serves from `https://<owner>.github.io/<repo>/`. The workflow sets `VITE_BASE` to the
-repo name automatically; for a custom domain set `VITE_BASE=/`.
+repo name automatically; for a custom domain set `VITE_BASE=/`. No `VITE_API_BASE_URL` is set, so
+it runs the in-browser baselines until someone points it at a backend from the header.
 
 ## Uploads and validation
 

@@ -1,0 +1,29 @@
+# Keep the build context small and the image reproducible. Cloud Build uploads
+# this whole directory, and the datasets alone are ~6 GB.
+
+.git/
+.github/
+.upstream_git_backup/
+.claude/
+**/.DS_Store
+
+# The organisers' brief and datasets - not needed to train or serve.
+NebulaX-Hackathon-ProblemStatement/
+
+# Built by the image itself.
+frontend/node_modules/
+frontend/dist/
+
+# Host-specific Python state; the image installs its own.
+backend/.venv/
+backend/.pytest_cache/
+**/__pycache__/
+*.pyc
+
+# Derived at training time, rebuilt from the raw dataset.
+backend/artifacts/cache/
+
+# Docs and tests don't belong in the runtime image.
+**/README.md
+backend/tests/
+backend/scripts/
