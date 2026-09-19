@@ -127,6 +127,8 @@ export interface RunRecord {
   result: SubsystemResult
   inputFiles: string[]
   finishedAt: number
+  /** Wall-clock time the backend call itself took, in ms — used to estimate future runs of the same subsystem. */
+  durationMs: number
   /** The submission CSV exactly as PS3 specifies it. */
   csv: { filename: string; content: string }
   warnings: string[]

@@ -50,6 +50,9 @@ export async function runSubsystem(
     throw new Error('The trained models are not reachable. Start the backend (python serve.py in backend/) and retry.')
   }
   opts.onProgress?.({ done: 0, total: 1, label: 'Sending files to the trained models…' })
+  // Timed from just the backend call itself (not the file-checking above, which is near-instant), so
+  // past runs give a fair per-file rate for estimating how long a future run of this subsystem will take.
+  const started = performance.now()
   const result = await predictViaBackend(opts.apiBase, subsystem, files, (done, total) => {
     opts.onProgress?.({
       done,
@@ -57,6 +60,7 @@ export async function runSubsystem(
       label: total > 1 ? `Sending batch ${done} of ${total} to the trained models…` : 'Sending files to the trained models…',
     })
   })
+  const durationMs = performance.now() - started
   opts.onProgress?.({ done: 1, total: 1, label: 'Results in' })
 
   return {
@@ -68,6 +72,7 @@ export async function runSubsystem(
     result,
     inputFiles: files.map((f) => f.name),
     finishedAt: Date.now(),
+    durationMs,
     csv: buildPredictionCsv(subsystem, result),
     warnings: [],
   }

@@ -16,6 +16,13 @@ import type { RunRecord, SubsystemId } from './types'
 
 const MIN_LOADING_MS = 1000
 
+/** "1m 30s", "45s" — for the loading screen's time-remaining estimate. */
+function formatSeconds(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000))
+  if (s < 60) return `${s}s`
+  return `${Math.floor(s / 60)}m ${s % 60}s`
+}
+
 type View = 'home' | 'console' | 'results'
 const viewFromHash = (hash: string): View =>
   hash.startsWith('#/results') ? 'results' : hash.startsWith('#/app') ? 'console' : 'home'
@@ -42,6 +49,16 @@ export default function App() {
   const [health, setHealth] = useState<BackendHealth>({ reachable: false, models: {}, detail: 'Checking for the trained models…' })
   // While an analysis runs, the page clears to the moving train and a load bar.
   const [loading, setLoading] = useState(false)
+  // Ticks while loading, so the time-based estimate below can update against it.
+  const [elapsedMs, setElapsedMs] = useState(0)
+
+  useEffect(() => {
+    if (!loading) return
+    const started = performance.now()
+    setElapsedMs(0)
+    const id = setInterval(() => setElapsedMs(performance.now() - started), 100)
+    return () => clearInterval(id)
+  }, [loading])
 
   const recheck = useCallback(async () => {
     setHealth(await checkHealth(getApiBase()))
@@ -78,6 +95,18 @@ export default function App() {
 
   const meta = subsystem ? SUBSYSTEMS[subsystem] : null
   const backendReady = health.reachable && subsystem !== null && health.models[subsystem] !== false
+
+  // A real estimate, not a guess: the average time per file this subsystem's past runs actually took
+  // with the trained model, scaled to how many files are queued now. With no history yet for this
+  // subsystem, there is nothing honest to estimate from, so the bar falls back to indeterminate.
+  const history = subsystem
+    ? runs.filter((r) => r.subsystem === subsystem && r.engine === 'backend' && r.inputFiles.length > 0 && Number.isFinite(r.durationMs))
+    : []
+  const estimateMs =
+    history.length > 0 && files.length > 0
+      ? (history.reduce((sum, r) => sum + r.durationMs / r.inputFiles.length, 0) / history.length) * files.length
+      : null
+  const etaPct = estimateMs !== null ? Math.min(97, (elapsedMs / estimateMs) * 100) : null
 
   const onRun = async () => {
     if (!subsystem) return
@@ -169,15 +198,29 @@ export default function App() {
                   background: 'linear-gradient(90deg, var(--series-1), var(--series-3))',
                 }}
               />
+            ) : etaPct !== null ? (
+              // One request, but past runs of this subsystem give a real per-file rate to estimate from.
+              <div
+                className="h-full rounded-full transition-[width] duration-100"
+                style={{
+                  width: `${etaPct}%`,
+                  background: 'linear-gradient(90deg, var(--series-1), var(--series-3))',
+                }}
+              />
             ) : (
-              // One request, no partial progress to report: a coloured segment sweeps across instead.
+              // No history for this subsystem yet — nothing honest to estimate from, so a segment sweeps across instead.
               <div
                 className="load-indeterminate h-full w-1/3 rounded-full"
                 style={{ background: 'linear-gradient(90deg, var(--series-1), var(--series-4), var(--series-3))' }}
               />
             )}
           </div>
-          <p className="text-sm text-ink-secondary [text-shadow:0_1px_10px_var(--page-plane)]">{progress?.label ?? 'Working…'}</p>
+          <p className="text-sm text-ink-secondary [text-shadow:0_1px_10px_var(--page-plane)]">
+            {progress?.label ?? 'Working…'}
+            {etaPct !== null && !(progress && progress.total > 1) && estimateMs !== null && (
+              <> · ~{Math.round(etaPct)}% · {formatSeconds(Math.max(0, estimateMs - elapsedMs))} left</>
+            )}
+          </p>
         </div>
       )}
 

@@ -43,7 +43,7 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
 
       {/* Left: the headline, over the sky above the train */}
       <div className="px-4 pt-10 sm:pt-14 lg:px-10 lg:pt-[6vh]">
-        <h1 className="display headline-glow text-center text-4xl uppercase leading-[1.05] text-ink sm:text-5xl xl:text-6xl">
+        <h1 className="display headline-glow text-center text-3xl uppercase leading-[1.05] text-ink sm:text-4xl xl:text-5xl">
           <span className="display-outline block">Find the fault before</span>
           <span className="block font-black">the fault finds you</span>
         </h1>
