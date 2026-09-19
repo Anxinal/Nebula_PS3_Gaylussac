@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Backdrop } from './components/Backdrop'
 import { Home } from './components/Home'
 import { InfoHint } from './components/InfoHint'
+import { WhyPanel } from './components/results/WhyPanel'
 import { DownloadIcon, AlertIcon } from './components/icons'
 import { Header } from './components/Header'
 import { SubsystemPicker } from './components/SubsystemPicker'
@@ -125,9 +126,25 @@ export default function App() {
             <p className="mt-2.5 inline-flex items-center gap-1.5 text-lg text-ink-secondary">
               Drop in train sensor data
               <InfoHint label="About privacy and processing">
-                Files never leave your device. Parsing, feature extraction and the prediction all run in this
-                browser tab. Only if you connect a model backend from the header are files sent anywhere.
+                {health.reachable
+                  ? 'Files are sent to the connected model backend to be scored by the trained models, then discarded.'
+                  : 'Files never leave your device. Parsing, feature extraction and the prediction all run in this browser tab.'}
               </InfoHint>
+            </p>
+            {/* Whether the trained models are reachable; the app falls back to the in-browser baselines if not */}
+            <p className="mt-2 flex items-center justify-center gap-2 text-sm text-ink-secondary" aria-live="polite">
+              <span
+                aria-hidden
+                className="h-2 w-2 rounded-full"
+                style={{ background: health.reachable ? 'var(--status-good)' : 'var(--text-muted)' }}
+              />
+              {health.reachable ? 'Connected to the trained models' : 'Model backend offline — using in-browser baselines'}
+              <InfoHint label="About the model backend">{health.detail}</InfoHint>
+              {!health.reachable && (
+                <button type="button" className="btn-ghost !px-2 !py-0.5 text-xs" onClick={() => void recheck()}>
+                  Retry
+                </button>
+              )}
             </p>
           </div>
           <SubsystemPicker
@@ -164,6 +181,7 @@ export default function App() {
             {activeRun.result.kind === 'shm' && (
               <ShmResults result={activeRun.result} calibrated={activeRun.engine === 'backend' || calibration.fittedAt > 0} />
             )}
+            {activeRun.engine === 'backend' && <WhyPanel result={activeRun.result} />}
           </section>
         )}
 

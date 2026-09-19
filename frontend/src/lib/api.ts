@@ -1,6 +1,7 @@
 import type {
   AcvResult,
   DoorResult,
+  Explanation,
   RailResult,
   ShmResult,
   SubsystemId,
@@ -12,8 +13,8 @@ import type {
  *
  * The app runs standalone on its in-browser baselines, and switches to the
  * team's trained models as soon as a backend is reachable. Point it at one with
- * VITE_API_BASE_URL (build time) or the "Model backend" field in the header
- * (runtime, remembered in this browser).
+ * VITE_API_BASE_URL at build time; in development it looks for the backend's
+ * default address, http://localhost:8000 (`python serve.py` in backend/).
  *
  * Contract the backend must implement — see frontend/README.md:
  *   GET  {base}/health                  -> { "status": "ok", "models": { "door": true, ... } }
@@ -33,8 +34,11 @@ export function getApiBase(): string {
   } catch {
     // Private mode or blocked storage — fall through to the build-time value.
   }
-  return import.meta.env.VITE_API_BASE_URL ?? ''
+  return import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? DEV_BACKEND : '')
 }
+
+/** Where `python serve.py` listens by default. */
+const DEV_BACKEND = 'http://localhost:8000'
 
 export function setApiBase(value: string) {
   try {
@@ -99,6 +103,22 @@ export async function predictViaBackend(
   return normalise(subsystem, body)
 }
 
+/** The backend's snake_case explanation, or undefined when it sent none. */
+function toExplanation(raw: any): Explanation | undefined {
+  if (!raw || typeof raw !== 'object' || !raw.plain_summary) return undefined
+  return {
+    plainSummary: String(raw.plain_summary),
+    reasons: Array.isArray(raw.reasons) ? raw.reasons.map(String) : [],
+    topNodes: (raw.top_nodes ?? []).map((n: any) => ({
+      plain: String(n.plain ?? ''),
+      rule: String(n.rule ?? ''),
+      contribution: Number(n.contribution ?? 0),
+      nTrees: n.n_trees,
+    })),
+    note: raw.units_note || undefined,
+  }
+}
+
 function normalise(subsystem: SubsystemId, body: any): SubsystemResult {
   switch (subsystem) {
     case 'door': {
@@ -112,6 +132,7 @@ function normalise(subsystem: SubsystemId, body: any): SubsystemResult {
         rowCount: s.n_rows ?? s.rowCount,
         startOffsetSec: s.start_offset_sec,
         endOffsetSec: s.end_offset_sec,
+        explanation: toExplanation(s.explanation),
       }))
       const result: DoorResult = {
         kind: 'door',
@@ -119,6 +140,8 @@ function normalise(subsystem: SubsystemId, body: any): SubsystemResult {
         trace: body.trace ?? [],
         totalRows: body.total_rows ?? 0,
         durationSec: body.duration_sec ?? 0,
+        summary: body.summary,
+        explanation: toExplanation(body.explanation),
       }
       return result
     }
@@ -137,6 +160,7 @@ function normalise(subsystem: SubsystemId, body: any): SubsystemResult {
             })),
             series: f.series ?? [],
             sampleCount: f.sample_count ?? 0,
+            explanation: toExplanation(f.explanation),
           }
         }),
       }
@@ -153,6 +177,7 @@ function normalise(subsystem: SubsystemId, body: any): SubsystemResult {
           sideII: Number(f.side_ii ?? 0),
           rowCount: Number(f.n_rows ?? 0),
           speedKmh: f.speed_kmh ?? null,
+          explanation: toExplanation(f.explanation),
         })),
       }
       return result
@@ -166,6 +191,7 @@ function normalise(subsystem: SubsystemId, body: any): SubsystemResult {
           cycles: Number(f.cycles ?? 0),
           maxRange: Number(f.max_range ?? 0),
           bins: f.bins ?? [],
+          explanation: toExplanation(f.explanation),
         })),
       }
       return result

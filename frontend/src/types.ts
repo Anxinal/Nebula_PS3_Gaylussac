@@ -4,6 +4,25 @@ export type SubsystemId = 'door' | 'acv' | 'rail' | 'shm'
 /** Where a prediction came from. Surfaced in the UI so results are never ambiguous. */
 export type EngineId = 'backend' | 'baseline'
 
+/** One decision rule the tree ensemble applied, in plain words and as the exact split. */
+export interface ExplanationNode {
+  plain: string
+  rule: string
+  /** How far this rule moved the prediction; the signs add up to the final value. */
+  contribution: number
+  /** How many trees in the forest applied it. */
+  nTrees?: number
+}
+
+/** Why the trained model decided what it did. Only the model backend supplies these. */
+export interface Explanation {
+  plainSummary: string
+  reasons: string[]
+  topNodes: ExplanationNode[]
+  /** What the explained value is, when it is not obvious (e.g. which cycle it covers). */
+  note?: string
+}
+
 export interface DoorSegment {
   /** Native dataset timestamp, e.g. "2023-7-5-0-11-17-664". */
   startTime: string
@@ -19,6 +38,7 @@ export interface DoorSegment {
   /** Seconds from the start of the stream, for timeline placement. */
   startOffsetSec?: number
   endOffsetSec?: number
+  explanation?: Explanation
 }
 
 export interface DoorResult {
@@ -28,6 +48,10 @@ export interface DoorResult {
   trace: { t: number; current: number }[]
   totalRows: number
   durationSec: number
+  /** One-line verdict for the whole stream, from the backend. */
+  summary?: string
+  /** The explanation behind the most telling cycle, from the backend. */
+  explanation?: Explanation
 }
 
 export interface AcvCarScore {
@@ -45,6 +69,7 @@ export interface AcvFileResult {
   /** Per-car mean indoor temperature series, for the comparison chart. */
   series: { car: string; points: { t: number; value: number }[] }[]
   sampleCount: number
+  explanation?: Explanation
 }
 
 export interface AcvResult {
@@ -63,6 +88,7 @@ export interface RailFileResult {
   sideII: number
   rowCount: number
   speedKmh: number | null
+  explanation?: Explanation
 }
 
 export interface RailResult {
@@ -79,6 +105,7 @@ export interface ShmFileResult {
   maxRange: number
   /** Per-bin damage contribution, for the contribution chart. */
   bins: { rangeMid: number; cycles: number; damage: number }[]
+  explanation?: Explanation
 }
 
 export interface ShmResult {
