@@ -25,15 +25,17 @@ export function SubsystemPicker({
               type="button"
               onClick={() => onSelect(id)}
               aria-pressed={isActive}
-              className="card flex h-full w-full flex-col items-center px-4 pb-4 pt-6 text-center
+              className="card-clear flex h-full w-full flex-col items-center px-5 pb-6 pt-8 text-center
                          transition-all hover:-translate-y-0.5 hover:shadow-lg"
+              // Same 1px hairline as the page's other cards; the picked one turns blue, with a ring
+              // drawn outside the border so selecting never shifts the layout.
               style={{
                 borderColor: isActive ? 'var(--series-1)' : 'var(--border-hairline)',
-                borderWidth: isActive ? 2 : 1,
+                boxShadow: isActive ? '0 0 0 1px var(--series-1)' : undefined,
               }}
             >
               <span
-                className="flex h-12 w-12 items-center justify-center rounded-xl text-[1.6rem]"
+                className="flex h-16 w-16 items-center justify-center rounded-2xl text-[2.1rem]"
                 style={{
                   color: isActive ? 'var(--series-1)' : 'var(--text-secondary)',
                   background: isActive
@@ -44,12 +46,12 @@ export function SubsystemPicker({
                 <Icon />
               </span>
 
-              <span className="display mt-3 text-lg font-bold tracking-tight text-ink">{meta.name}</span>
-              <span className="mt-1 text-sm leading-snug text-ink-secondary">{meta.tagline}</span>
+              <span className="display mt-4 text-2xl font-bold tracking-tight text-ink">{meta.name}</span>
+              <span className="mt-1.5 text-base leading-snug text-ink-secondary">{meta.tagline}</span>
 
               {isDone && (
                 <span
-                  className="mt-3 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                  className="mt-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium"
                   style={{
                     color: 'var(--status-good)',
                     background: 'color-mix(in srgb, var(--status-good) 14%, transparent)',

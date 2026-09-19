@@ -101,7 +101,16 @@ export default function App() {
 
   return (
     <div className="min-h-full">
-      <Backdrop />
+      {/* The train waits at the station while you pick and upload, then pulls away with your files. */}
+      <Backdrop atStation={view === 'console' && files.length === 0} split={view === 'home'} />
+      {/* On the console the scene softens behind a blur, so the panels read over it */}
+      <div
+        aria-hidden
+        className={`pointer-events-none fixed inset-0 -z-[5] transition-opacity duration-700 ${
+          view === 'console' ? 'opacity-100' : 'opacity-0'
+        }`}
+        style={{ backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+      />
       <Header
         apiBase={apiBase}
         onApiBaseChange={(v) => {
@@ -117,13 +126,13 @@ export default function App() {
       {view === 'home' && <Home onStart={openConsole} />}
 
       {view === 'console' && (
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
-        <section>
-          <div className="mb-5 text-center">
-            <h1 className="display text-3xl font-bold tracking-tight text-ink">Select a subsystem</h1>
-            <p className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-ink-secondary">
-Drop in train sensor data — <strong>it is read right here</strong>
-              <InfoHint label="About privacy and processing">
+      <main className="fade-in mx-auto max-w-6xl space-y-6 px-4 py-6">
+        <section className="pt-6 sm:pt-10">
+          <div className="mb-7 text-center">
+            <h1 className="display text-4xl font-black uppercase tracking-tight text-ink sm:text-5xl">Select a subsystem</h1>
+            <p className="mt-2.5 inline-flex items-center gap-1.5 text-lg text-ink-secondary">
+              Drop in train sensor data
+              <InfoHint label="About privacy and processing" side="below">
                 Files never leave your device. Parsing, feature extraction and the prediction all run in this
                 browser tab. Only if you connect a model backend from the header are files sent anywhere.
               </InfoHint>

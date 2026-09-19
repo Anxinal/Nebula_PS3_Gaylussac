@@ -6,7 +6,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
-        display: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['"Exo 2"', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         // Semantic roles resolve to the CSS custom properties in index.css,

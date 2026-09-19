@@ -37,7 +37,7 @@ export function Header({
           </svg>
           <div className="leading-tight">
             <div className="display text-sm font-bold tracking-tight text-ink">Train Condition Monitoring</div>
-            <div className="eyebrow">NebulaX 2026 · PS3</div>
+            <div className="eyebrow">NebulaX 2026 · Gay-Lussac's Project</div>
           </div>
         </button>
 
