@@ -1,4 +1,4 @@
-# Nebula PS3 — Team Gaylussac
+# Nebula PS3 — Team Gay-lussac
 
 Submission for **NebulaX 2026 Problem Statement 3 — Train Condition Monitoring**: detect faults and
 estimate degradation across four rail-vehicle subsystems (Door, ACV, Rail Corrugation, SHM) from
