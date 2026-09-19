@@ -23,7 +23,7 @@ export interface SubsystemMeta {
 export const SUBSYSTEMS: Record<SubsystemId, SubsystemMeta> = {
   door: {
     id: 'door',
-    name: 'Door',
+    name: 'Door Fault',
     tagline: 'Finds abnormal door resistance',
     detail:
       'Door controllers stream continuously, with no marks where one open/close cycle ends and the next begins. The model locates every cycle in that stream, then decides whether the motor met abnormal resistance — a jammed rubber strip, debris in the slide rail, a deformed leaf. Scored on IoU-weighted F1, so both the timing and the label have to be right.',
@@ -38,7 +38,7 @@ export const SUBSYSTEMS: Record<SubsystemId, SubsystemMeta> = {
   },
   acv: {
     id: 'acv',
-    name: 'ACV',
+    name: 'Air Conditioning and Ventilation (ACV)',
     tagline: 'Finds the car losing refrigerant',
     detail:
       'Refrigerant leaks cause about 40% of air-conditioning faults, and a leaking car cools less well than its neighbours. Every car on the train is ranked from most to least likely to be the leaking one. Scored on a linear rank-decay score, so putting the true car second or third still earns solid credit.',
@@ -47,14 +47,14 @@ export const SUBSYSTEMS: Record<SubsystemId, SubsystemMeta> = {
     metric: 'Linear rank-decay score',
     outputFile: 'acv_predictions.csv',
     expects: 'One case file per train — .xlsx or .csv, several at a time.',
-    accept: '.xlsx,.xls,.csv',
+    accept: '.xlsx,.csv',
     multiple: true,
-    extensions: ['.xlsx', '.xls', '.csv'],
+    extensions: ['.xlsx', '.csv'],
   },
   rail: {
     id: 'rail',
     name: 'Rail Corrugation',
-    tagline: 'Detects corrugation, and on which rail',
+    tagline: 'Analyse possible deteriorating conditions',
     detail:
       'Corrugation is a periodic wavy wear pattern on the railhead that drives up noise, dynamic forces and maintenance cost. Axle-box accelerometers pick up its signature as the train passes. Each 1-second recording is called Normal, Side I or Side II. Scored on macro F1, so rare faults count as much as the common Normal case.',
     task: 'Multi-class classification',
@@ -68,7 +68,7 @@ export const SUBSYSTEMS: Record<SubsystemId, SubsystemMeta> = {
   },
   shm: {
     id: 'shm',
-    name: 'SHM',
+    name: 'Structural Health Monitoring (SHM)',
     tagline: 'Estimates accumulated fatigue damage',
     detail:
       'Load-bearing structures accumulate fatigue over years of service. From a dynamic stress time series the model estimates cumulative damage, where D = 1 is Miner\'s failure threshold. Scored on max(0, 1 − MAPE), measured relative to each file\'s true value.',

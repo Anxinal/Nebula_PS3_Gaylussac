@@ -6,14 +6,14 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
  *
  * The bubble is positioned from the trigger's viewport rect rather than being
  * absolutely placed inside its parent, so it is never clipped by a scrolling
- * table or an overflow-hidden card. It opens above the trigger unless `side`
- * asks for below, and flips under anyway if there is no room above.
+ * table or an overflow-hidden card. It opens below the trigger unless `side`
+ * asks for above, and flips to the other side when the window has no room.
  */
 export function InfoHint({
   children,
   label = 'More detail',
   className = '',
-  side = 'above',
+  side = 'below',
 }: {
   children: ReactNode
   label?: string
@@ -34,11 +34,13 @@ export function InfoHint({
     setBelow(side === 'below') // re-checked for room once the bubble exists
   }
 
-  // Flip under the trigger when the bubble would run off the top of the window.
+  // Flip to the other side when the bubble would run off the window.
   useLayoutEffect(() => {
     if (!open || !pos) return
     const h = bubbleRef.current?.offsetHeight ?? 0
-    setBelow(side === 'below' || pos.top - h - 12 < 8)
+    const roomAbove = pos.top - h - 12 >= 8
+    const roomBelow = pos.bottom + h + 12 <= window.innerHeight - 8
+    setBelow(side === 'below' ? roomBelow || !roomAbove : !roomAbove)
   }, [open, pos, side])
 
   const show = () => {

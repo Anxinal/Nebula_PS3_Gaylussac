@@ -39,8 +39,12 @@ export function SubsystemPicker({
                 style={{
                   color: isActive ? 'var(--series-1)' : 'var(--text-secondary)',
                   background: isActive
-                    ? 'color-mix(in srgb, var(--series-1) 14%, transparent)'
-                    : 'color-mix(in srgb, var(--text-muted) 10%, transparent)',
+                    ? 'color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 20%, transparent)'
+                    : 'color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 11%, transparent)',
+                  // A thin tinted edge and a soft glow around the tile, brighter when picked
+                  boxShadow: isActive
+                    ? `0 0 0 1px color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 45%, transparent), 0 0 14px color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 50%, transparent)`
+                    : `0 0 0 1px color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 22%, transparent), 0 0 14px color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 25%, transparent)`,
                 }}
               >
                 <Icon />
@@ -63,8 +67,9 @@ export function SubsystemPicker({
             </button>
 
             {/* Outside the button: a control inside a button is not valid markup. */}
-            <span className="absolute right-2.5 top-2.5">
-              <InfoHint label={`About ${meta.name}`}>
+            {/* A flex box with no line height, so the icon's own edges set the gap to the top and right */}
+            <span className="absolute right-3 top-3 flex text-xl leading-none">
+              <InfoHint label={`About ${meta.name}`} className="!translate-y-0">
                 <strong className="text-ink">{meta.name}</strong>
                 <br />
                 {meta.detail}

@@ -37,6 +37,8 @@
   /* Backdrop artwork and the translucent panels that sit over it. */
   --backdrop-opacity: 0.75;
   --train-strength: 1; /* how much of the train's silver shows; dark mode lowers it */
+  --car-lights: 0; /* road cars' lamps light up only in dark mode */
+  --daylight: 1; /* 1 shows the sun, 0 the moon and stars */
   --glass: rgba(252, 252, 251, 0.95);
   --glass-strong: rgba(252, 252, 251, 0.94);
   /* Panel behind loose text over the backdrop; light mode needs it, dark does not. */
@@ -69,6 +71,10 @@
     --backdrop-opacity: 0.9;
 
     --train-strength: 0.5;
+
+    --car-lights: 1;
+
+    --daylight: 0;
     --glass: rgba(26, 26, 25, 0.95);
     --glass-strong: rgba(26, 26, 25, 0.9);
     --scrim: transparent;
@@ -100,6 +106,10 @@
   --backdrop-opacity: 0.9;
 
   --train-strength: 0.5;
+
+  --car-lights: 1;
+
+  --daylight: 0;
   --glass: rgba(26, 26, 25, 0.95);
   --glass-strong: rgba(26, 26, 25, 0.9);
   --scrim: transparent;
@@ -158,6 +168,19 @@ body {
     background: var(--glass);
   }
   /* A lighter pane for cards that should let the backdrop show through. */
+  /* Home page subsystem cards: mostly opaque, washing blue-teal on hover and keyboard focus. */
+  .pick-card {
+    background: color-mix(in srgb, var(--surface-1) 84%, transparent);
+  }
+  .pick-card:hover,
+  .pick-card:focus-visible {
+    background: color-mix(
+      in srgb,
+      color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 12%,
+      color-mix(in srgb, var(--surface-1) 84%, transparent)
+    );
+    border-color: color-mix(in srgb, var(--series-1) 35%, transparent);
+  }
   .card-clear {
     @apply rounded-xl border border-hairline;
     background: var(--clear);
@@ -217,7 +240,7 @@ body {
 
 /* Views fade in rather than cut, e.g. the console once the train has arrived. */
 .fade-in {
-  animation: fade-in 1.8s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: fade-in 0.9s cubic-bezier(0.22, 1, 0.36, 1);
 }
 @keyframes fade-in {
   from {
@@ -226,9 +249,21 @@ body {
   }
 }
 
+/* Skyline life: the wheel turns steadily and very slowly, an eighth of a turn every 40 s
+   (its spokes repeat every 45°, so the loop has no jump). */
+.bd-wheel {
+  transform-box: view-box;
+  animation: bd-wheel 40s linear infinite;
+}
+@keyframes bd-wheel {
+  to {
+    transform: rotate(45deg);
+  }
+}
+
 /* The home page's right panel sliding away once a subsystem is picked. */
 .panel-out {
-  animation: panel-out 0.45s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  animation: panel-out 0.28s cubic-bezier(0.55, 0, 1, 0.45) forwards;
 }
 @keyframes panel-out {
   to {
@@ -285,6 +320,9 @@ body {
   .bd-cloud {
     animation: none;
     transform: translateX(var(--cloud-rest, 40vw));
+  }
+  .bd-wheel {
+    animation: none;
   }
   *,
   *::before,

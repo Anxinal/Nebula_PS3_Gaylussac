@@ -1,25 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { BackendHealth } from '../lib/api'
 
-export function Header({
-  apiBase,
-  onApiBaseChange,
-  health,
-  onRecheck,
-  onHome,
-  showHome,
-}: {
-  apiBase: string
-  onApiBaseChange: (v: string) => void
-  health: BackendHealth
-  onRecheck: () => void
-  onHome: () => void
-  showHome: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState(apiBase)
-  useEffect(() => setDraft(apiBase), [apiBase])
-
+export function Header({ onHome, showHome }: { onHome: () => void; showHome: boolean }) {
   return (
     <header className="sticky top-0 z-20 border-b border-hairline"
       style={{ background: 'var(--glass-strong)', backdropFilter: 'blur(14px) saturate(1.2)' }}>
@@ -47,68 +28,10 @@ export function Header({
               <span aria-hidden>←</span> Start
             </button>
           )}
-          <button
-            type="button"
-            className="btn-ghost !px-2.5 !py-1.5 text-xs"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-          >
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ background: health.reachable ? 'var(--status-good)' : 'var(--text-muted)' }}
-              aria-hidden
-            />
-            {health.reachable ? 'Model backend' : 'Built-in baseline'}
-          </button>
           <ThemeToggle />
         </div>
       </div>
 
-      {open && (
-        <div className="border-t border-hairline" style={{ background: 'var(--glass-strong)' }}>
-          <div className="mx-auto max-w-6xl px-4 py-4">
-            <label className="block text-xs font-medium text-ink" htmlFor="api-base">
-              Model backend URL
-            </label>
-            <p className="mt-0.5 text-xs text-ink-secondary">
-              Empty runs the built-in baselines in your browser. Point it at the team's service to use the trained
-              models — e.g. <code>http://localhost:8000</code>.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <input
-                id="api-base"
-                type="url"
-                value={draft}
-                placeholder="http://localhost:8000"
-                onChange={(e) => setDraft(e.target.value)}
-                className="min-w-[16rem] flex-1 rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
-              />
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  onApiBaseChange(draft.trim())
-                  onRecheck()
-                }}
-              >
-                Connect
-              </button>
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => {
-                  setDraft('')
-                  onApiBaseChange('')
-                  onRecheck()
-                }}
-              >
-                Use baseline
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-ink-secondary">{health.detail}</p>
-          </div>
-        </div>
-      )}
     </header>
   )
 }

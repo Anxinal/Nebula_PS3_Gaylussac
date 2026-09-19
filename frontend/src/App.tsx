@@ -12,7 +12,7 @@ import { AcvResults } from './components/results/AcvResults'
 import { RailResults } from './components/results/RailResults'
 import { ShmResults } from './components/results/ShmResults'
 import { SUBSYSTEMS } from './subsystems'
-import { checkHealth, getApiBase, setApiBase, type BackendHealth } from './lib/api'
+import { checkHealth, getApiBase, type BackendHealth } from './lib/api'
 import { runSubsystem, type RunProgress } from './lib/runner'
 import { downloadText } from './lib/predictionCsv'
 import { DEFAULT_CALIBRATION, type ShmCalibration } from './lib/engines/shm'
@@ -31,7 +31,8 @@ export default function App() {
   const [progress, setProgress] = useState<RunProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const [apiBase, setApiBaseState] = useState(getApiBase)
+  // A backend address saved earlier is still honoured; there is no longer a control to change it.
+  const [apiBase] = useState(getApiBase)
   const [health, setHealth] = useState<BackendHealth>({ reachable: false, models: {}, detail: 'Using the built-in baselines.' })
   const [railSensitivity, setRailSensitivity] = useState(3)
   const [calibration, setCalibration] = useState<ShmCalibration>(loadCalibration)
@@ -112,17 +113,7 @@ export default function App() {
         }`}
         style={{ backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
       />
-      <Header
-        apiBase={apiBase}
-        onApiBaseChange={(v) => {
-          setApiBase(v)
-          setApiBaseState(v)
-        }}
-        health={health}
-        onRecheck={recheck}
-        onHome={goHome}
-        showHome={view === 'console'}
-      />
+      <Header onHome={goHome} showHome={view === 'console'} />
 
       {view === 'home' && <Home onStart={openConsole} />}
 
@@ -133,7 +124,7 @@ export default function App() {
             <h1 className="display text-4xl font-black uppercase tracking-tight text-ink sm:text-5xl">Select a subsystem</h1>
             <p className="mt-2.5 inline-flex items-center gap-1.5 text-lg text-ink-secondary">
               Drop in train sensor data
-              <InfoHint label="About privacy and processing" side="below">
+              <InfoHint label="About privacy and processing">
                 Files never leave your device. Parsing, feature extraction and the prediction all run in this
                 browser tab. Only if you connect a model backend from the header are files sent anywhere.
               </InfoHint>

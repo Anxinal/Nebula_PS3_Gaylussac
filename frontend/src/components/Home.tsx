@@ -14,7 +14,7 @@ import type { SubsystemId } from '../types'
  * right before the console opens.
  */
 
-const LEAVE_MS = 450 // matches .panel-out in index.css
+const LEAVE_MS = 280 // matches .panel-out in index.css
 export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }) {
   const [leaving, setLeaving] = useState(false)
   const timer = useRef<number | undefined>(undefined)
@@ -45,7 +45,7 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
       <div className="px-4 pt-10 sm:pt-14 lg:px-10 lg:pt-[6vh]">
         <h1 className="display headline-glow text-center text-4xl uppercase leading-[1.05] text-ink sm:text-5xl xl:text-6xl">
           <span className="display-outline block">Find the fault before</span>
-          <span className="block font-black">the train finds you</span>
+          <span className="block font-black">the fault finds you</span>
         </h1>
       </div>
 
@@ -57,7 +57,7 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
             Pick where to start
           </h2>
 
-          <div className="mt-3 grid gap-2.5">
+          <div className="mt-3 grid gap-3">
             {SUBSYSTEM_ORDER.map((id) => {
               const meta = SUBSYSTEMS[id]
               const Icon = SUBSYSTEM_ICON[id]
@@ -66,21 +66,22 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
                   key={id}
                   type="button"
                   onClick={() => pick(id)}
-                  style={{ background: 'color-mix(in srgb, var(--surface-1) 84%, transparent)' }}
-                  className="card group flex items-start gap-3 px-3.5 py-2.5 text-left transition-all
+                  className="card pick-card group flex items-center gap-4 px-5 py-4 text-left transition-all
                              hover:-translate-y-0.5 hover:shadow-lg"
                 >
                   <span
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[1.15rem]"
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-[1.5rem]"
                     style={{
                       color: 'var(--series-1)',
-                      background: 'color-mix(in srgb, var(--series-1) 12%, transparent)',
+                      background: 'color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 16%, transparent)',
+                      // A thin tinted edge and a soft glow around the tile
+                      boxShadow: `0 0 0 1px color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 30%, transparent), 0 0 14px color-mix(in srgb, color-mix(in srgb, var(--series-1) 72%, var(--series-3)) 35%, transparent)`,
                     }}
                   >
                     <Icon />
                   </span>
                   <span className="min-w-0">
-                    <span className="display block text-base font-bold text-ink">
+                    <span className="display block text-lg font-bold text-ink">
                       {meta.name}
                       <span
                         aria-hidden
@@ -90,7 +91,7 @@ export function Home({ onStart }: { onStart: (subsystem?: SubsystemId) => void }
                         →
                       </span>
                     </span>
-                    <span className="mt-0.5 block text-xs leading-snug text-ink-secondary">{meta.tagline}</span>
+                    <span className="mt-0.5 block text-sm leading-snug text-ink-secondary">{meta.tagline}</span>
                   </span>
                 </button>
               )

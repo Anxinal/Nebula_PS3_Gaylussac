@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import type { SubsystemMeta } from '../subsystems'
-import { filterSelection, type Rejection } from '../lib/validate'
+import { ALLOWED_EXTENSIONS, filterSelection, type Rejection } from '../lib/validate'
 import { AlertIcon, UploadIcon } from './icons'
 import { InfoHint } from './InfoHint'
 
@@ -97,6 +97,7 @@ export function Dropzone({
 
       {rejected.length > 0 && (
         <div
+          role="alert"
           className="mt-3 rounded-lg border px-3 py-2 text-xs"
           style={{
             borderColor: 'var(--status-warning)',
@@ -109,6 +110,9 @@ export function Dropzone({
             </span>
             {rejected.length} file{rejected.length === 1 ? '' : 's'} skipped
           </p>
+          {rejected.some((r) => r.reason !== 'file is empty') && (
+            <p className="mt-0.5 text-ink-secondary">Only {ALLOWED_EXTENSIONS.join(' and ')} files are accepted.</p>
+          )}
           <ul className="mt-1 space-y-0.5 text-ink-secondary">
             {rejected.slice(0, 5).map((r) => (
               <li key={r.name} className="truncate">

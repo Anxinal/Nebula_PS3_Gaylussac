@@ -17,44 +17,51 @@ const base = {
   'aria-hidden': true,
 }
 
-/** Train doors: a car end with its two leaves parting. */
+/** Train doors: two leaves meeting at a seam that has buckled, with a crack running off one corner. */
 function DoorIcon() {
   return (
     <svg {...base}>
       <rect x="3.5" y="3.5" width="17" height="17" rx="3" />
-      <path d="M12 4v16" />
+      <path d="M12 4v5.5l-1.3 1.6 2 1.8-1.1 1.7L12 20" />
       <path d="M8.5 11v2M15.5 11v2" />
+      <path d="M20.3 7.5 17.8 8.7l.8 1.4-1.3.7" strokeWidth={1.3} />
     </svg>
   )
 }
 
-/** ACV: a snowflake for the cooling circuit. */
+/** ACV: a wall air-con unit with a drop of water leaking from its underside. */
 function AcvIcon() {
   return (
     <svg {...base}>
-      <path d="M12 2.5v19M4 7l16 10M20 7L4 17" />
-      <path d="M9.4 4.2 12 6.6l2.6-2.4M9.4 19.8 12 17.4l2.6 2.4" />
+      <rect x="2.5" y="3.5" width="19" height="8" rx="2" />
+      <path d="M5.5 9h13M16.5 6h2" />
+      <path fill="currentColor" fillOpacity={0.35} d="M12 12.2C12 12.2 10.55 14.08 10.55 15.24A1.45 1.45 0 0 0 13.45 15.24C13.45 14.08 12 12.2 12 12.2Z" />
+      <path fill="currentColor" fillOpacity={0.35} d="M12 19.4C12 19.4 11.15 20.5 11.15 21.18A0.85 0.85 0 0 0 12.85 21.18C12.85 20.5 12 19.4 12 19.4Z" />
     </svg>
   )
 }
 
-/** Rail corrugation: the wavy wear pattern along the railhead. */
+/** Rail corrugation: track running away to the horizon, the right rail worn into deep waves and the left one snapped. */
 function RailIcon() {
   return (
     <svg {...base}>
-      <path d="M2.5 9c1.6 0 1.6-3 3.2-3s1.6 3 3.2 3 1.6-3 3.2-3 1.6 3 3.2 3 1.6-3 3.2-3" />
-      <path d="M2.5 18h19" />
-      <path d="M6 13.5v4M12 13.5v4M18 13.5v4" />
+      <path d="M5 21 6.8 15.3l-.9-.4M7.4 13.4l.9.4M7.4 13.4 10.5 3.5" />
+      <path d="M19 21Q20.15 19.65 18.43 19.19T17.86 17.38 17.3 15.57 16.73 13.77 16.16 11.96 15.59 10.15L13.5 3.5" />
+      <path d="M4.2 17h15.6M6.6 11.5h10.8M8.4 7h7.2" />
     </svg>
   )
 }
 
-/** SHM: a stress trace crossing a damage threshold. */
+/**
+ * SHM: an outlined heart broken in two down a zigzag crack, the halves drawn as separate
+ * shapes and nudged apart so the crack shows as a clean gap.
+ */
 function ShmIcon() {
+  const crack = 'L10.8 17.9 12.4 15.9 10.9 13.9 12.6 11.8 10.8 9.4Z'
   return (
     <svg {...base}>
-      <path d="M2.5 12h2.6l2-5.5 3 11 3-8 2.2 4.5h6.2" />
-      <path d="M2.5 19.5h19" strokeDasharray="0.1 3" />
+      <path d={`M12 6.6C11.2 5 9.8 3.9 8 3.8 5.6 3.6 3.2 5.4 3 8.6 2.8 12.8 6 16.5 12 20.5${crack}`} transform="translate(-0.7 0)" />
+      <path d={`M12 6.6C12.8 5 14.2 3.9 16 3.8 18.4 3.6 20.8 5.4 21 8.6 21.2 12.8 18 16.5 12 20.5${crack}`} transform="translate(0.7 0)" />
     </svg>
   )
 }

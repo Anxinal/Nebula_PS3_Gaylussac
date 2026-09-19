@@ -15,6 +15,9 @@ export interface Rejection {
   reason: string
 }
 
+/** The only file types the app takes at all; each subsystem may narrow this further. */
+export const ALLOWED_EXTENSIONS = ['.xlsx', '.csv']
+
 export function filterSelection(
   meta: SubsystemMeta,
   files: File[],
@@ -25,8 +28,12 @@ export function filterSelection(
   for (const file of files) {
     const lower = file.name.toLowerCase()
     if (lower.startsWith('.') || lower === '__macosx') continue // OS clutter from folder drops
+    if (!ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
+      rejected.push({ name: file.name, reason: 'not an .xlsx or .csv file' })
+      continue
+    }
     if (!meta.extensions.some((ext) => lower.endsWith(ext))) {
-      rejected.push({ name: file.name, reason: `not ${meta.extensions.join(' or ')}` })
+      rejected.push({ name: file.name, reason: `${meta.name} reads ${meta.extensions.join(' or ')} only` })
       continue
     }
     if (file.size === 0) {
