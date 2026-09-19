@@ -1,4 +1,4 @@
-"""Random Forest classifier with a SHAP TreeExplainer attached.
+"""Extremely Randomized Trees classifier with a SHAP TreeExplainer attached.
 
 Two prediction strategies are supported, both ending in the 3-class label the
 submission requires.
@@ -25,7 +25,7 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import ExtraTreesClassifier
 
 from .config import CLASS_NORMAL, CLASS_ORDER, CLASS_SIDE_I, CLASS_SIDE_II, ModelConfig
 
@@ -48,19 +48,19 @@ class ShapExplanation:
 
 
 class RailForestModel:
-    """Wraps a RandomForest plus its TreeExplainer behind one interface."""
+    """Wraps an ExtraTrees ensemble plus its TreeExplainer behind one interface."""
 
     def __init__(self, config: ModelConfig | None = None):
         self.config = config or ModelConfig()
-        self.forest: RandomForestClassifier | None = None
+        self.forest: ExtraTreesClassifier | None = None
         self.feature_names: list[str] = []
         self.threshold: float = DEFAULT_THRESHOLD
         self.stationary_override: bool = True
         self._explainer = None
 
     # -- training ----------------------------------------------------------
-    def _new_forest(self) -> RandomForestClassifier:
-        return RandomForestClassifier(
+    def _new_forest(self) -> ExtraTreesClassifier:
+        return ExtraTreesClassifier(
             n_estimators=self.config.n_estimators,
             max_depth=self.config.max_depth,
             min_samples_leaf=self.config.min_samples_leaf,

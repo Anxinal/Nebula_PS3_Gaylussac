@@ -9,7 +9,7 @@
   },
   "rail": {
     "metric": "macro F1",
-    "cv_score": 0.6634176504636954
+    "cv_score": 0.7229692940756078
   },
   "shm": {
     "metric": "max(0, 1 - MAPE)",

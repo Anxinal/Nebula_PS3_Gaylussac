@@ -91,7 +91,7 @@ class FeatureConfig:
 
 @dataclass(frozen=True)
 class ModelConfig:
-    """Random Forest hyper-parameters and prediction strategy."""
+    """Extremely Randomized Trees hyper-parameters and prediction strategy."""
 
     #: ``per_side`` trains one binary "is this rail corrugated?" forest on
     #: 2 rows per file (544 rows, 38 positive), pooling the fault signature
@@ -100,14 +100,23 @@ class ModelConfig:
     #: given only 14 Side I examples.
     strategy: Literal["per_side", "multiclass"] = "per_side"
 
-    # Selected by grouped-CV sweep (see README). The top few settings sat
-    # within one standard deviation of each other, so treat this as "a
-    # reasonable region" rather than a finely-tuned optimum.
-    n_estimators: int = 1200
+    # Selected by grouped-CV sweep (see README). ExtraTrees rather than a
+    # RandomForest: with 721 correlated spectral features and only 38 positive
+    # rows, optimised split points chase noise - the forest reaches a perfect
+    # training fit and loses 0.36 average precision out-of-fold. Randomised
+    # split thresholds regularise that away, worth +0.13 AP.
+    n_estimators: int = 3000
     max_depth: int | None = None
     min_samples_leaf: int = 3
-    max_features: str | int | float = 0.15
-    class_weight: str | None = "balanced_subsample"
+    max_features: str | int | float = 0.05
+
+    # NOT "balanced": that implies a 7.2x minority weight here, which buys
+    # recall at a precision cost macro F1 does not forgive. The OOF optimum is
+    # a much milder 2-4x. Equivalent to duplicating each fault row 3x, since
+    # ExtraTrees does not bootstrap.
+    class_weight: str | dict[int, float] | None = field(
+        default_factory=lambda: {0: 1.0, 1: 3.0}
+    )
     random_state: int = 42
     n_jobs: int = -1
 
