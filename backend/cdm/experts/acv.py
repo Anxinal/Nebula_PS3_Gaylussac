@@ -33,6 +33,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 
 from ..base import SubsystemExpert, Verdict
+from ..explain import explain_prediction, physics_explanation
 
 CAR_COLUMN_RE = re.compile(r"^Car (\S+) - (.+)$")
 
@@ -241,6 +242,26 @@ class ACVExpert(SubsystemExpert):
     def predict_file(self, path: str | Path) -> Verdict:
         ranked = self._rank_case(path)
         top = ranked.iloc[0]
+
+        if self.use_physics_only:
+            # No forest was consulted, so there is no decision path to walk.
+            # Report the physical quantities that drove the ranking instead of
+            # dressing an empty tree decomposition up as an explanation.
+            explanation = physics_explanation(
+                {
+                    "dev_shortfall_mean_K": float(top.dev_shortfall_mean),
+                    "dev_indoor_mean_K": float(top.dev_indoor_mean),
+                },
+                "ranked by physics, not by the forest: cooling shortfall relative to the fleet",
+            )
+        else:
+            explanation = explain_prediction(
+                self.model,
+                ranked.iloc[0][self.feature_names].to_numpy(dtype=float),
+                list(self.feature_names),
+                units_note=f"P(car {top.car} is the leaking car)",
+            )
+
         return Verdict(
             subsystem=self.name,
             fault_detected=None,  # localisation task: a leak is present by construction
@@ -249,6 +270,7 @@ class ACVExpert(SubsystemExpert):
             detail={"ranked_cars": list(ranked.car),
                     "deviation_K": dict(zip(ranked.car, ranked.dev_indoor_mean.round(3)))},
             confidence=float(top.score) if not self.use_physics_only else None,
+            explanation=explanation,
         )
 
     def submission_rows(self, paths: list[Path]) -> pd.DataFrame:

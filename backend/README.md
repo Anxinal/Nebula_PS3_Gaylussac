@@ -94,6 +94,43 @@ puts the forest on the **residual** — 0.946.
 **Rail — `cdm/experts/rail.py`.** Adapter over the `rail_cdm` package; the
 deep-dive below is unchanged.
 
+## Explainability
+
+Every expert is a tree ensemble, so each prediction reports **why** — in plain
+language, backed by exact figures.
+
+```
+[door] FAULT: 38 door cycles found, 12 showing abnormal resistance
+    because motor current in stroke phase 4 of 8 is too high; and current drawn
+    per unit of door travel (effort against resistance) is too high
+```
+
+Two complementary decompositions (`cdm/explain.py`):
+
+- **Node-path decomposition** — the *most salient node*. Walking the decision
+  path the sample actually took, each node moves the prediction from its own
+  value to its chosen child's. The steps telescope exactly:
+  `base + Σ contributions == predicted value`, asserted by test. For a forest
+  the per-tree walks are averaged (valid — a forest's prediction *is* that mean)
+  and grouped by `(feature, direction)`, so the output reads as one rule the
+  ensemble applied rather than thousands of node ids.
+- **SHAP feature attribution** via `TreeExplainer` — answers "which *feature*
+  mattered", where the node walk answers "which *split* fired". Different
+  questions, so both are reported.
+
+`cdm/glossary.py` turns systematic feature names back into English —
+`contrast__vib__wlfrac2__mean` becomes *"Side I vs Side II difference in the
+share of energy at 8–16 cm wavelength"*. Unmapped names fall back to the raw
+column, never a wrong guess.
+
+**Where it lands.** `diagnose` prints the plain reason per file (`--nodes N`
+for the full numeric decomposition). `predict` writes `explanations.json`
+alongside the submission CSVs — one entry per file carrying `plain_summary`,
+`reasons`, and per node the readable text *plus* `rule`, `threshold`,
+`direction`, `contribution`, `n_trees`. Submission CSV schemas are never
+touched. Explanations cost roughly 2.4× the runtime (16 s → 39 s over 87
+files); pass `--no-explain` to skip them.
+
 ## Caveats
 
 - **Door's 1.0000 is on 110 training segments** and survives nested threshold

@@ -47,6 +47,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import KFold
 
 from ..base import SubsystemExpert, Verdict
+from ..explain import explain_prediction
 
 #: S-N exponents to evaluate. Structural steel weldments typically sit at
 #: m = 3-5; the spread lets the model pick what fits this data.
@@ -255,7 +256,33 @@ class SHMExpert(SubsystemExpert):
 
     def predict_file(self, path: str | Path) -> Verdict:
         path = Path(path)
-        damage = float(self._predict_paths([path])[0])
+        features = extract_features(path)
+        frame = pd.DataFrame([features])
+        X = frame[self.feature_names].to_numpy(float)
+        anchor_log = float(
+            self.anchor_slope * features[f"log_S{self.anchor_exponent:g}"] + self.anchor_intercept
+        )
+        damage = float(np.exp(anchor_log + self.model.predict(X)[0]))
+
+        # The forest only predicts the *residual* on top of the Miner's-rule
+        # anchor, and the anchor carries about 99% of the variance. Reporting
+        # only the tree's nodes would imply the tree does the work, so the
+        # anchor is surfaced as an explicit term alongside them.
+        explanation = explain_prediction(
+            self.model,
+            X[0],
+            list(self.feature_names),
+            extra_terms={
+                "miner_anchor_log": anchor_log,
+                "anchor_only_damage": float(np.exp(anchor_log)),
+                "final_damage": damage,
+            },
+            units_note=(
+                f"log space: the Miner's anchor (m={self.anchor_exponent:g}) sets the value and "
+                "the forest corrects it; a contribution of +0.20 means x1.22 on damage, not +0.20"
+            ),
+        )
+
         # Miner's rule: failure is reached at D >= 1.
         severe = damage >= 1.0
         return Verdict(
@@ -263,7 +290,9 @@ class SHMExpert(SubsystemExpert):
             fault_detected=None,  # regression task - no fault/no-fault label exists
             summary=f"cumulative damage {damage:.4f}"
                     + (" - at or past Miner's failure threshold" if severe else ""),
-            detail={"damage": damage, "fraction_of_life_used": damage},
+            detail={"damage": damage, "fraction_of_life_used": damage,
+                    "anchor_only_damage": float(np.exp(anchor_log))},
+            explanation=explanation,
         )
 
     def submission_rows(self, paths: list[Path]) -> pd.DataFrame:

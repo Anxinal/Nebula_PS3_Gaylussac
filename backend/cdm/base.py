@@ -9,6 +9,8 @@ from typing import Any
 
 import pandas as pd
 
+from .explain import TreeExplanation
+
 
 @dataclass
 class Verdict:
@@ -26,13 +28,19 @@ class Verdict:
     summary: str
     detail: dict[str, Any] = field(default_factory=dict)
     confidence: float | None = None
-    explanation: pd.Series | None = None
+    #: Node-level and SHAP attribution for this prediction, when the deciding
+    #: model is tree-based.
+    explanation: TreeExplanation | None = None
 
     def __str__(self) -> str:
         status = {True: "FAULT", False: "no fault", None: "n/a"}[self.fault_detected]
         head = f"[{self.subsystem}] {status}: {self.summary}"
         if self.confidence is not None:
             head += f"  (confidence {self.confidence:.2f})"
+        if self.explanation is not None:
+            top = self.explanation.top_node()
+            if top is not None:
+                head += f"\n        {self.explanation.plain_summary(2)}"
         return head
 
 

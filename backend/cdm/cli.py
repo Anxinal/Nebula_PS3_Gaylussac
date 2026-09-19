@@ -71,7 +71,13 @@ def cmd_diagnose(args) -> int:
         return 1
 
     for path in paths[: args.limit]:
-        print(pipeline.diagnose(path))
+        diagnosis = pipeline.diagnose(path)
+        print(diagnosis)
+        # __str__ already names the single most salient node; --nodes asks for
+        # the fuller decomposition.
+        if args.nodes > 1 and diagnosis.verdict is not None and diagnosis.verdict.explanation:
+            for line in diagnosis.verdict.explanation.summary(args.nodes).splitlines():
+                print("        " + line)
     if len(paths) > args.limit:
         print(f"\n... {len(paths) - args.limit} more files (raise --limit to see them)")
     return 0
@@ -93,6 +99,7 @@ def cmd_predict(args) -> int:
     for subsystem in sorted(grouped):
         print(f"  {subsystem:8s} {len(grouped[subsystem]):4d}")
 
+    explanations: list[dict] = []
     for subsystem, files in sorted(grouped.items()):
         if subsystem == UNKNOWN:
             print(f"\nskipping {len(files)} unrecognised file(s)")
@@ -107,6 +114,26 @@ def cmd_predict(args) -> int:
         print(f"\n{subsystem}: {len(rows)} rows -> {destination}")
         if "prediction" in rows.columns and rows.prediction.dtype == object:
             print(rows.prediction.value_counts().to_string())
+
+        if not args.no_explain:
+            for path in files:
+                verdict = expert.predict_file(path)
+                entry = {
+                    "file_id": path.name,
+                    "subsystem": subsystem,
+                    "summary": verdict.summary,
+                    "fault_detected": verdict.fault_detected,
+                    "confidence": verdict.confidence,
+                }
+                if verdict.explanation is not None:
+                    entry["explanation"] = verdict.explanation.to_dict()
+                explanations.append(entry)
+
+    if not args.no_explain:
+        # Sidecar only - the submission CSVs keep their required schemas exactly.
+        sidecar = out_dir / "explanations.json"
+        sidecar.write_text(json.dumps(explanations, indent=2, default=str))
+        print(f"\nexplanations for {len(explanations)} files -> {sidecar}")
     return 0
 
 
@@ -125,11 +152,15 @@ def build_parser() -> argparse.ArgumentParser:
     diagnose = sub.add_parser("diagnose", help="route files and report verdicts")
     diagnose.add_argument("--input", required=True)
     diagnose.add_argument("--limit", type=int, default=20)
+    diagnose.add_argument("--nodes", type=int, default=1,
+                          help="how many salient nodes to print per file (1 = just the top one)")
     diagnose.set_defaults(func=cmd_diagnose)
 
     predict = sub.add_parser("predict", help="write every subsystem's submission CSV")
     predict.add_argument("--input", required=True)
     predict.add_argument("--output-dir", default="submissions")
+    predict.add_argument("--no-explain", action="store_true",
+                         help="skip explanations.json; roughly halves the runtime")
     predict.set_defaults(func=cmd_predict)
     return parser
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from rail_cdm.config import CLASS_NORMAL, PipelineConfig
@@ -19,6 +20,7 @@ from rail_cdm.model import RailForestModel
 from rail_cdm.trainer import RailTrainer
 
 from ..base import SubsystemExpert, Verdict
+from ..explain import explain_prediction
 
 
 class RailExpert(SubsystemExpert):
@@ -56,7 +58,7 @@ class RailExpert(SubsystemExpert):
         return self
 
     # -- inference ---------------------------------------------------------
-    def _predict_frame(self, paths: list[Path]) -> pd.DataFrame:
+    def _predict_frame(self, paths: list[Path]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         if self.model is None:
             raise RuntimeError("rail expert is not fitted")
         rows = [self.loader.extract_file_features(p) for p in paths]
@@ -64,11 +66,25 @@ class RailExpert(SubsystemExpert):
         file_frame["label"] = pd.NA
         side_frame = self.loader.to_side_frame(file_frame)
         X = side_frame[self.model.feature_names]
-        return self.model.predict_file_labels(side_frame, X)
+        return self.model.predict_file_labels(side_frame, X), side_frame, X
 
     def predict_file(self, path: str | Path) -> Verdict:
-        result = self._predict_frame([Path(path)]).iloc[0]
+        predictions, side_frame, X = self._predict_frame([Path(path)])
+        result = predictions.iloc[0]
         label = str(result.prediction)
+
+        # The model scores each rail separately, so explain the rail that
+        # actually decided the label - the higher-scoring one. Explaining the
+        # other rail would attribute the verdict to the wrong set of channels.
+        deciding_side = "I" if result.p_side_I >= result.p_side_II else "II"
+        row = int(np.flatnonzero(side_frame["side"].to_numpy() == deciding_side)[0])
+        explanation = explain_prediction(
+            self.model.forest,
+            X.iloc[row].to_numpy(dtype=float),
+            list(self.model.feature_names),
+            units_note=f"P(corrugated) for the Side {deciding_side} rail",
+        )
+
         return Verdict(
             subsystem=self.name,
             fault_detected=label != CLASS_NORMAL,
@@ -77,12 +93,15 @@ class RailExpert(SubsystemExpert):
             detail={"prediction": label,
                     "p_side_I": float(result.p_side_I),
                     "p_side_II": float(result.p_side_II),
+                    "deciding_side": deciding_side,
                     "is_stationary": bool(result.is_stationary)},
             confidence=float(result.confidence),
+            explanation=explanation,
         )
 
     def submission_rows(self, paths: list[Path]) -> pd.DataFrame:
-        return self._predict_frame(list(paths))[["file_id", "prediction"]]
+        predictions, _, _ = self._predict_frame(list(paths))
+        return predictions[["file_id", "prediction"]]
 
     def save(self, path: str | Path) -> Path:
         if self.model is None:

@@ -43,6 +43,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
 
 from ..base import SubsystemExpert, Verdict
+from ..explain import explain_prediction
 
 NORMAL = "Normal"
 ABNORMAL = "Abnormal resistance"
@@ -292,7 +293,7 @@ class DoorExpert(SubsystemExpert):
         return self
 
     # -- inference ----------------------------------------------------------
-    def _predict_segments(self, path: str | Path) -> pd.DataFrame:
+    def _predict_segments(self, path: str | Path, *, return_features: bool = False):
         stream = load_stream(path)
         bounds = segment_stream(stream)
         rows, spans = [], []
@@ -300,18 +301,36 @@ class DoorExpert(SubsystemExpert):
             block = stream.iloc[a:b]
             rows.append(segment_features(block))
             spans.append((block["_t"].iloc[0], block["_t"].iloc[-1]))
-        X = pd.DataFrame(rows)[self.feature_names].to_numpy(float)
+        features = pd.DataFrame(rows)
+        X = features[self.feature_names].to_numpy(float)
         proba = self.model.predict_proba(X)[:, 1]
-        return pd.DataFrame({
+        segments = pd.DataFrame({
             "start_time": [format_datetime(s) for s, _ in spans],
             "end_time": [format_datetime(e) for _, e in spans],
             "prediction": np.where(proba >= self.threshold, ABNORMAL, NORMAL),
             "confidence": proba,
         })
+        return (segments, features) if return_features else segments
 
     def predict_file(self, path: str | Path) -> Verdict:
-        segments = self._predict_segments(path)
+        segments, features = self._predict_segments(path, return_features=True)
         n_abnormal = int((segments.prediction == ABNORMAL).sum())
+
+        explanation = None
+        if len(segments):
+            # A stream holds many cycles, so explain the one that carries the
+            # verdict: the most suspicious cycle. That is the segment a
+            # maintainer would actually go and look at.
+            row = int(segments.confidence.to_numpy().argmax())
+            explanation = explain_prediction(
+                self.model,
+                features.iloc[row][self.feature_names].to_numpy(dtype=float),
+                list(self.feature_names),
+                extra_terms={"segment_index": float(row),
+                             "segment_confidence": float(segments.confidence.iloc[row])},
+                units_note=f"P(abnormal resistance) for the cycle starting {segments.start_time.iloc[row]}",
+            )
+
         return Verdict(
             subsystem=self.name,
             fault_detected=n_abnormal > 0,
@@ -319,6 +338,7 @@ class DoorExpert(SubsystemExpert):
             detail={"n_segments": len(segments), "n_abnormal": n_abnormal,
                     "segments": segments.to_dict("records")},
             confidence=float(segments.confidence.max()) if len(segments) else None,
+            explanation=explanation,
         )
 
     def submission_rows(self, paths: list[Path]) -> pd.DataFrame:
